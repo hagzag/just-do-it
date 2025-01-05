@@ -53,14 +53,6 @@ tasks:
         fi
       - task: run-all-files
 
-      # too Naive ...
-      #  - |
-      #   if [ ! -f "{{.ROOT_DIR}}/.pre-commit-config.yaml" ]; then
-      #     cp "{{.TASKFILE_DIR}}/.pre-commit-config.yaml" "{{.ROOT_DIR}}/.pre-commit-config.yaml"
-      #   else
-      #     echo ".pre-commit-config.yaml already exists, skipping..."
-      #   fi
-  
   gen-default-pre-commit-config:
     desc: create-the-base
     summary: an entry point we can extend on in the task system
@@ -77,23 +69,6 @@ tasks:
               pass_filenames: false
               stages: [commit]
         EOF
-      # - |
-      #   cat<<EOF>'{{.TASKFILE_DIR}}/pre-commit.sh'
-      #   #!/usr/bin/env bash
-      #   task --list-all && exit 0
-      #   EOF
-      # - |
-      #   cat<<EOF>'{{.TASKFILE_DIR}}/.pre-commit-config.yaml'
-      #   repos:
-      #   - repo: local
-      #     hooks:
-      #       - id: run-custom-script
-      #         name: Run Custom Script
-      #         entry: ./posts/pre-commit/pre-commit.sh
-      #         language: script
-      #         pass_filenames: false
-      #         stages: [commit]
-      #   EOF
 
   get:
     desc: "internal | exec - install pre-commit via homebrew"
