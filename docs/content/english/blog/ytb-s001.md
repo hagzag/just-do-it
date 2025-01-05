@@ -4,7 +4,8 @@ meta_title:
 description:
 date: 2022-12-04T09:21:00Z
 image: "https://www.tikalk.com/_next/static/media/hero-image.a061d0fe.png"
-categories: ["DevRel", "Youtube", "YoutubeShorts"]
+categories: ["
+", "Youtube", "YoutubeShorts"]
 author: "Haggai Philip Zagury (hagzag)"
 tags: ["YoutubeShorts"]
 draft: false

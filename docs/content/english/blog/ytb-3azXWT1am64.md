@@ -14,7 +14,7 @@ This video is my intro to Cloud Native Platform, given at [DevOps days TLV](http
 
 ## Video
 
-{{< youtube 1jbl2L-mRL4 >}}
+{{< youtube 3azXWT1am64 >}}
 
 <hr>
 

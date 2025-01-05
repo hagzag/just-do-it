@@ -28,9 +28,3 @@ DevOps Concerns for Deep Learning Systems (30 min) - by Haggai Philip Zagury, De
 {{< youtube LxXnWUD6x3k >}}
 
 <hr>
-
-## Video part 2
-
-{{< youtube JoYa0zGqd-g >}}
-
-<hr>
