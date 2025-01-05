@@ -3,7 +3,7 @@ title: "Raising the Bar: Docker native clustering with Swarm | Hebrew, Meetup"
 meta_title:
 description:
 date: 2004-02-04T09:21:00Z
-image: "https://www.tikalk.com/_next/static/media/hero-image.a061d0fe.png"
+image: "https://i.imgur.com/4Aaf6O3.png"
 categories: ["Youtube", "Developer Experience (DevEx)", "Meetup", "Vagrant", "Chef"]
 author: "Haggai Philip Zagury (hagzag)"
 tags: ["Meetup", "Youtube", "DevEx", "Vagrant", "Chef"]

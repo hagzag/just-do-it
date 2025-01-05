@@ -3,7 +3,7 @@ title: "Minkube Introduction, in my early days with Kubernetes & Youtube"
 meta_title:
 description:
 date: 2018-03-19T09:21:00Z
-image: "https://i.imgur.com/CbzXtg2.png"
+image: "https://i.imgur.com/oZlgPrW.png"
 categories: ["Development", "Developer Experience (DevEx)", "Kubernetes", "Youtube"]
 author: "Haggai Philip Zagury (hagzag)"
 tags: ["Production Readiness", "Youtube", "minikube", "DevEx"]

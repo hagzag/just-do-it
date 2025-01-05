@@ -3,7 +3,7 @@ title: "DevEx | GitOps & ArgoCD, Meetup Tikal & Ownbackup"
 meta_title:
 description:
 date: 2022-03-30T19:21:00Z
-image: "https://www.tikalk.com/_next/static/media/hero-image.a061d0fe.png"
+image: "https://i.imgur.com/4Aaf6O3.png"
 categories: ["Youtube", "Developer Experience (DevEx)", "Meetup"]
 author: "Haggai Philip Zagury (hagzag)"
 tags: ["Meetup", "Youtube", "DevEx"]

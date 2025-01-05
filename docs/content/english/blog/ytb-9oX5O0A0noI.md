@@ -3,7 +3,7 @@ title: "Kube Security Shifting left, with Armo Security"
 meta_title:
 description:
 date: 2022-12-04T09:21:00Z
-image: "https://i.imgur.com/CbzXtg2.png"
+image: "https://i.imgur.com/oZlgPrW.png"
 categories: ["Development", "Developer Experience (DevEx)", "Presentations", "Kubernetes", "Youtube", "Production Readiness", "Security"]
 author: "Haggai Philip Zagury (hagzag)"
 tags: ["Production Readiness", "Youtube", "TechRadarCon", "Security"]

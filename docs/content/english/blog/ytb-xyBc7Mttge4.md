@@ -3,7 +3,7 @@ title: "Modern Monitoring, Tikal Knowledge"
 meta_title:
 description:
 date: 2023-01-11T07:23:00Z
-image: "https://www.tikalk.com/_next/static/media/hero-image.a061d0fe.png"
+image: "https://i.imgur.com/4Aaf6O3.png"
 categories: ["Development", "Developer Experience (DevEx)", "Presentations", "Monitoring", "Youtube"]
 author: "Haggai Philip Zagury (hagzag)"
 tags: ["Monitoring", "DevEx"]

@@ -3,7 +3,7 @@ title: "Kubernetes Production Readiness Best Practices by Tikal DevOps"
 meta_title:
 description:
 date: 2024-07-31T07:23:00Z
-image: "https://www.tikalk.com/_next/static/media/hero-image.a061d0fe.png"
+image: "https://i.imgur.com/4Aaf6O3.png"
 categories: ["Development", "Developer Experience (DevEx)", "Presentations", "Webinar", "Kubernetes", "Youtube", "Production Readiness"]
 author: "Haggai Philip Zagury (hagzag)"
 tags: ["Webinar", "Production Readiness", "DevEx"]

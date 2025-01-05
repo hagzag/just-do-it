@@ -3,7 +3,7 @@ title: "Chef & Vagrant for Dev-in-DevOps, Meetup (Workshop)"
 meta_title:
 description:
 date: 2022-02-22T09:21:00Z
-image: "https://www.tikalk.com/_next/static/media/hero-image.a061d0fe.png"
+image: "https://i.imgur.com/4Aaf6O3.png"
 categories: ["Youtube", "Meetup"]
 author: "Haggai Philip Zagury (hagzag)"
 tags: ["Meetup", "Youtube", "DevEx", "Vagrant", "Chef"]

@@ -3,7 +3,7 @@ title: "Getting Up & Running with Kubernetes"
 meta_title:
 description:
 date: 2009-03-28T07:23:00Z
-image: "https://www.tikalk.com/_next/static/media/hero-image.a061d0fe.png"
+image: "https://i.imgur.com/4Aaf6O3.png"
 categories: ["Development", "Developer Experience (DevEx)", "Presentations", "Webinar", "Kubernetes", "Youtube", "Production Readiness"]
 author: "Haggai Philip Zagury (hagzag)"
 tags: ["Webinar", "Production Readiness", "DevEx"]

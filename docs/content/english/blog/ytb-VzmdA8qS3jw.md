@@ -3,7 +3,7 @@ title: "Have You built your Developer Platform yet? TechRadarCon Talk"
 meta_title:
 description:
 date: 2022-11-22T09:21:00Z
-image: "https://i.imgur.com/CbzXtg2.png"
+image: "https://i.imgur.com/oZlgPrW.png"
 categories: ["Development", "Developer Experience (DevEx)", "Presentations", "TechRadarCon", "Kubernetes", "Youtube", "Production Readiness"]
 author: "Haggai Philip Zagury (hagzag)"
 tags: ["TechRadarCon", "Production Readiness", "Youtube", "DevEx"]

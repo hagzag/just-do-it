@@ -3,7 +3,7 @@ title: "Cloud Native Devs!, TechRadarCon Talk"
 meta_title:
 description:
 date: 2022-01-17T09:21:00Z
-image: "https://i.imgur.com/CbzXtg2.png"
+image: "https://i.imgur.com/oZlgPrW.png"
 categories: ["Development", "Developer Experience (DevEx)", "Presentations", "Kubernetes", "Youtube", "Production Readiness"]
 author: "Haggai Philip Zagury (hagzag)"
 tags: ["Production Readiness", "Youtube", "TechRadarCon", "DevEx"]
