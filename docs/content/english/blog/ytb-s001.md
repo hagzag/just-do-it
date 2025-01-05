@@ -4,8 +4,7 @@ meta_title:
 description:
 date: 2022-12-04T09:21:00Z
 image: "https://i.imgur.com/4Aaf6O3.png"
-categories: ["
-", "Youtube", "YoutubeShorts"]
+categories: ["Youtube", "YoutubeShorts"]
 author: "Haggai Philip Zagury (hagzag)"
 tags: ["YoutubeShorts"]
 draft: false
