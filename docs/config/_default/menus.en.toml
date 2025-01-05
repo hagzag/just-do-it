@@ -1,0 +1,52 @@
+############# English navigation ##############
+
+# main menu
+[[main]]
+name = "Home"
+url = "/"
+weight = 1
+
+[[main]]
+name = "About"
+url = "/about"
+weight = 2
+
+[[main]]
+name = "Blog"
+url = "/blog"
+weight = 3
+
+[[main]]
+weight = 4
+name = "Pages"
+
+[[main]]
+parent = "Pages"
+name = "Contact"
+url = "/contact"
+
+[[main]]
+parent = "Pages"
+name = "Categories"
+url = "/categories"
+
+[[main]]
+parent = "Pages"
+name = "404 Page"
+url = "/404"
+
+[[main]]
+parent = "Pages"
+name = "Elements"
+url = "/elements"
+
+# footer menu
+[[footer]]
+name = "About"
+url = "/about"
+weight = 1
+
+[[footer]]
+name = "Privacy Policy"
+url = "/privacy-policy"
+weight = 3
