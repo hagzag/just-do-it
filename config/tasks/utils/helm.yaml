@@ -26,6 +26,16 @@ tasks:
     cmds:
       - helm upgrade --install {{.CHART}} -f {{.VALUES_FILES}} -n {{.NAMESPACE}} --create-namespace --wait {{.CHART_FOLDER}}
 
+  _uninstall:
+    desc: "uninstall Helm chart for {{.CHART_FOLDER}} in {{.NAMESPACE}} namespace"
+    requires:
+      vars:
+      - CHART
+      - CHART_FOLDER
+      - NAMESPACE
+    cmds:
+      - helm list -n {{.NAMESPACE}} | grep {{.CHART}}&& helm uninstall {{.CHART}} -n {{.NAMESPACE}} || true
+
   template_apply:
     desc: "Apply Helm template for {{.CHART_FOLDER}} in {{.CHART}} namespace"
     cmds:

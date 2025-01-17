@@ -25,6 +25,10 @@ tasks:
       - task: dryrun
       - task: apply
 
+  _uninstall:
+    cmds:
+      - task: uninstall
+
   create-wrapper-chart:
     dir: '{{.ROOT_DIR}}/config/apps/'
     cmds:
@@ -53,8 +57,6 @@ tasks:
       CHART_FOLDER: './config/apps/{{.cp_controller_name}}'
       VALUES_FILES: './config/apps/{{.cp_controller_name}}/values.yaml'
     cmds:
-      - task: helm:repo_add
-        vars: *cpvars
       - task: helm:dependency_build
         vars: *cpvars
       - task: helm:template
@@ -69,6 +71,11 @@ tasks:
       - task: helm:install
         vars: *cpvars
   
+  uninstall:
+    cmds:
+      - task: helm:_uninstall
+        vars: *cpvars
+
   full-run:
     cmds:
       - task: create-wrapper-chart
@@ -76,6 +83,13 @@ tasks:
       - task: dryrun
       - task: apply
       - task: aws:all
+      - task: gcp:all
+
+  resource-cleanup:
+    cmds:
+      - task: aws:resource-cleanup
+      - task: gcp:resource-cleanup
+      - task: uninstall
 
   # AWS
   aws:all:
