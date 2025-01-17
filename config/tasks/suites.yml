@@ -22,5 +22,6 @@ includes:
   gatekeeper: ./suites/gatekeeper/Taskfile.yaml
   gatekeeper-pm: ./suites/gatekeeper-policy-manager/Taskfile.yaml
 
+  bitwarden: ./suites/bitwarden/Taskfile.yaml
   # # observability
   #TODO: monitoring-n-logging: ./monitoring-n-logging.yaml

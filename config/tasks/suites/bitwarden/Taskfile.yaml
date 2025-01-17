@@ -1,0 +1,139 @@
+---
+version: '3'
+
+silent: true
+
+includes:
+  helm: ../../utils/helm.yaml
+
+vars:
+  bw_controller_name: &bwname sm-operator
+  bw_controller_namespace: bitwarden
+  bw_controller_repo: https://charts.bitwarden.com/
+  bw_controller_chart_version: 0.1.0-Beta
+  bw_controller_token: '{{.BWS_ACCESS_TOKEN}}'
+
+tasks:
+
+  install-dev:
+    cmds:
+      - task: set-argocd-context
+      - task: dryrun
+      - task: apply
+
+  install:
+    cmds:
+      - task: dryrun
+      - task: apply
+
+  create-wrapper-chart:
+    dir: '{{.ROOT_DIR}}/config/apps/'
+    cmds:
+      - task: helm:create-wrapper-chart
+        vars:
+          APP_WRAPPER_NAME: '{{.bw_controller_name}}'
+          APP_NAME: '{{.bw_controller_name}}'
+          APP_REPO: '{{.bw_controller_repo}}'
+          APP_VERSION: '{{.bw_controller_chart_version}}'
+
+  create-values:
+    dir: '{{.ROOT_DIR}}/config/apps/{{.bw_controller_name}}'
+    cmds:
+      - |
+        test -f values.yaml && mv values.yaml values.yaml.bak || true
+        cat<<EOF > values.yaml
+        {{.bw_controller_name}}: {}
+        EOF
+  
+  dryrun:
+    vars: &bwvars
+      CHART: '{{.bw_controller_name}}'
+      NAMESPACE: '{{.bw_controller_namespace}}'
+      REPO_URL: '{{.bw_controller_repo}}'
+      VERSION: '{{.bw_controller_chart_version}}'
+      CHART_FOLDER: './config/apps/{{.bw_controller_name}}'
+      VALUES_FILES: './config/apps/{{.bw_controller_name}}/values.yaml'
+    cmds:
+      - task: helm:repo_add
+        vars: *bwvars
+      - task: helm:dependency_build
+        vars: *bwvars
+      - task: helm:template
+        vars: *bwvars
+      - task: helm:template_apply_dry_run
+        vars: *bwvars
+  
+  apply:
+    cmds:
+      - task: helm:dependency_build 
+        vars: *bwvars
+      - task: helm:install
+        vars: *bwvars
+  
+  full-run:
+    cmds:
+      - task: create-wrapper-chart
+      - task: create-values
+      - task: dryrun
+      - task: apply
+
+  bws:
+    cmds:
+      - cargo install bws
+
+  bws-list-secrets:
+    cmds:
+      - ~/.cargo/bin/bws secret list
+  
+  bws-create-sample-secret:
+    cmds:
+      - |
+        echo "create secret with name a-secret-name and value a-secret-value"
+        export project_id=`~/.cargo/bin/bws project list | jq -r '.[] | select(.name == "k3d-demo") | .id'`
+        echo "project id :: $project_id"
+        ~/.cargo/bin/bws secret create a-secret-name a-secret-value $project_id
+
+  bws-delete-secret:
+    cmds:
+      - |
+        echo "delete secret with name a-secret-name"
+        export secret_id=`~/.cargo/bin/bws secret list | jq -r '.[] | select(.key == "a-secret-name") | .id'`
+        echo "secret_id :: $secret_id"
+        ~/.cargo/bin/bws secret delete $secret_id
+
+  # demo tasks
+
+  create-org-secret:
+    cmds:
+      - |
+        echo "create org secret"
+        kubectl create secret generic bw-auth-token -n {{.bw_controller_namespace}} --from-literal=token="{{.bw_controller_token}}"
+
+
+  create-bitwarden-secret:
+    dir: '{{.ROOT_DIR}}/config/apps/{{.bw_controller_name}}'
+    cmds:
+      - |
+        cat <<EOF | kubectl apply -n {{.bw_controller_namespace}} -f -
+        apiVersion: k8s.bitwarden.com/v1
+        kind: BitwardenSecret
+        metadata:
+          labels:
+            app.kubernetes.io/name: bitwardensecret
+            app.kubernetes.io/instance: bitwardensecret-sample
+            app.kubernetes.io/part-of: sm-operator
+            app.kubernetes.io/managed-by: kustomize
+            app.kubernetes.io/created-by: sm-operator
+          name: bitwardensecret-sample
+        spec:
+          organizationId: "bd5e886a-16c9-428c-8624-b26501509909"
+          secretName: bw-sample-secret
+          map:
+            - bwSecretId: dcc4bd55-c985-4130-87e4-b2650165e5c9
+              secretKeyName: xxx
+          authToken:
+            secretName: bw-auth-token
+            secretKey: token
+        EOF
+  
+  
