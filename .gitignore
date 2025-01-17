@@ -42,3 +42,5 @@ venv
 *.log
 
 .idea/*
+*-credentials.ini
+*-credentials.json

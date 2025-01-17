@@ -25,3 +25,4 @@ includes:
   bitwarden: ./suites/bitwarden/Taskfile.yaml
   # # observability
   #TODO: monitoring-n-logging: ./monitoring-n-logging.yaml
+  crossplane: ./suites/crossplane/Taskfile.yaml
