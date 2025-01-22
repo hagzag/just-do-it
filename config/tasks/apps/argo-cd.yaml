@@ -79,6 +79,12 @@ tasks:
               enabled: true
               hostname: argocd.k3d.localhost
               ingressClassName: nginx
+              tls: true
+              pathType: ImplementationSpecific
+              extraTls:
+              - secretName: tls-secret
+                hosts:
+                - argocd.k8s.localhost
           ## Globally shared configuration
           global:
             # -- Default domain used by all components
