@@ -4,13 +4,19 @@ argo-cd:
   server:
     ingress:
       enabled: true
-      hostname: argocd.k3d.localhost
+      hostname: argocd.k8s.localhost
       ingressClassName: nginx
+      tls: false
+      pathType: ImplementationSpecific
+      extraTls:
+      - secretName: tls-secret
+        hosts:
+        - argocd.k8s.localhost
   ## Globally shared configuration
   global:
     # -- Default domain used by all components
     ## Used for ingresses, certificates, SSO, notifications, etc.
-    domain: argocd.k3d.localhost
+    domain: argocd.k8s.localhost
 
   configs:
     params:
