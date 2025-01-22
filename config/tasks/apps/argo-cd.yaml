@@ -79,7 +79,7 @@ tasks:
               enabled: true
               hostname: argocd.k3d.localhost
               ingressClassName: nginx
-              tls: true
+              tls: false
               pathType: ImplementationSpecific
               extraTls:
               - secretName: tls-secret
