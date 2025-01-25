@@ -8,7 +8,7 @@ includes:
 
 vars:
   argocd_controller_name: &argocdname argo-cd
-  argocd_wrapper_chart_name: argocd
+  argocd_wrapper_chart_name: *argocdname
   argocd_controller_namespace: argocd
   argocd_controller_repo: https://argoproj.github.io/argo-helm
   argocd_controller_chart_version: 7.7.16
@@ -22,11 +22,12 @@ tasks:
     cmds:
       - |
         argocd login --core && true
-        argocd app get argocd-app || \
+        argocd app get argocd-app 2>/dev/null || \
         argocd app create argocd-app \
         --repo https://github.com/hagzag/just-do-it.git \
         --path config/apps/argocd \
         --dest-server https://kubernetes.default.svc \
+        --values values.yaml \
         --dest-namespace argocd \
         --sync-policy automated \
         --auto-prune \
@@ -62,7 +63,7 @@ tasks:
 
   dryrun:
     vars: &argocdvars
-      CHART: '{{.argocd_controller_name}}'
+      CHART: '{{.argocd_wrapper_chart_name}}'
       NAMESPACE: '{{.argocd_controller_namespace}}'
       REPO_URL: '{{.argocd_controller_repo}}'
       VERSION: '{{.argocd_controller_chart_version}}'
