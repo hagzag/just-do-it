@@ -18,8 +18,8 @@ spec:
             ingressClassName: nginx
             host: dagster.k8s.localhost
             tls:
-            enabled: true
-            secretName: tls-secret
+              enabled: true
+              secretName: tls-secret
       valueFiles:
       - values.yaml
     path: config/apps/dagster
