@@ -47,6 +47,10 @@ tasks:
       - task: dryrun
       - task: apply
 
+  uninstall:
+    cmds:
+      - task: _uninstall
+
   create-wrapper-chart:
     dir: '{{.ROOT_DIR}}/config/apps/'
     cmds:
@@ -97,7 +101,7 @@ tasks:
               enabled: true
               hostname: argocd.k8s.localhost
               ingressClassName: nginx
-              tls: false
+              tls: true
               pathType: ImplementationSpecific
               extraTls:
               - secretName: tls-secret
@@ -294,6 +298,11 @@ tasks:
 
                     return health_status
         EOF
+
+  _uninstall:
+    cmds:
+      - task: helm:_uninstall
+        vars: *argocdvars
 
   # kustomize
   kustomize:install:
