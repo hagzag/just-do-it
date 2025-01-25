@@ -15,6 +15,24 @@ vars:
 
 tasks:
 
+  create-argocd-argo-app:
+    vars:
+      GIT_URI:
+        sh: git config --get remote.origin.url
+    cmds:
+      - 
+      - |
+        argocd login --core && true
+        argocd app get argocd-app || \
+        argocd app create argocd-app \
+        --repo https://github.com/hagzag/just-do-it.git \
+        --path config/apps/argocd \
+        --dest-server https://kubernetes.default.svc \
+        --dest-namespace argocd \
+        --sync-policy automated \
+        --auto-prune \
+        --self-heal  
+
   # helm
 
   install-dev:
@@ -77,7 +95,7 @@ tasks:
           server:
             ingress:
               enabled: true
-              hostname: argocd.k3d.localhost
+              hostname: argocd.k8s.localhost
               ingressClassName: nginx
               tls: false
               pathType: ImplementationSpecific
@@ -89,7 +107,7 @@ tasks:
           global:
             # -- Default domain used by all components
             ## Used for ingresses, certificates, SSO, notifications, etc.
-            domain: argocd.k3d.localhost
+            domain: argocd.k8s.localhost
 
           configs:
             params:
