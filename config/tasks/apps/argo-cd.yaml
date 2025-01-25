@@ -20,7 +20,6 @@ tasks:
       GIT_URI:
         sh: git config --get remote.origin.url
     cmds:
-      - 
       - |
         argocd login --core && true
         argocd app get argocd-app || \
@@ -101,7 +100,7 @@ tasks:
               enabled: true
               hostname: argocd.k8s.localhost
               ingressClassName: nginx
-              tls: true
+              tls: false
               pathType: ImplementationSpecific
               extraTls:
               - secretName: tls-secret

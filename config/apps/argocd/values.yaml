@@ -6,7 +6,7 @@ argo-cd:
       enabled: true
       hostname: argocd.k8s.localhost
       ingressClassName: nginx
-      tls: true
+      tls: false
       pathType: ImplementationSpecific
       extraTls:
       - secretName: tls-secret
