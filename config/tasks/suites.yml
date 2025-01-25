@@ -26,3 +26,6 @@ includes:
   # # observability
   #TODO: monitoring-n-logging: ./monitoring-n-logging.yaml
   crossplane: ./suites/crossplane/Taskfile.yaml
+
+  # dagster
+  dagster: ./suites/dagster/dagster.yaml
