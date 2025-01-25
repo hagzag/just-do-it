@@ -8,7 +8,7 @@ type: application
 
 # The chart version. This version number should be incremented each time you make changes
 # to the chart and its templates, including the app version.
-version: 0.0.1-dev
+version: 1.9.10
 
 # Version number of the application being deployed. This version number should be
 # incremented each time you make changes to the application.
@@ -16,5 +16,6 @@ appVersion: "1.0"
 
 dependencies:
 - name: dagster
-  version: 0.0.1-dev
+  version: 1.9.10
   repository: https://dagster-io.github.io/helm
+  condition: dagster.enabled

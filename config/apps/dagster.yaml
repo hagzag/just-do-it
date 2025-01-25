@@ -12,6 +12,7 @@ spec:
     helm:
       values: |
         dagster:
+          enabled: true
           ingress:
             enabled: true
             ingressClassName: nginx
