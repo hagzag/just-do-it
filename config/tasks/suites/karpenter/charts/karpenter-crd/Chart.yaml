@@ -1,0 +1,9 @@
+apiVersion: v2
+name: karpenter-wrapper
+description: A Helm chart wrapper for Karpenter
+version: 0.1.0
+type: application
+dependencies:
+  - name: karpenter-crd
+    version: "v0.33.0"  # Update this to match var.karpenter_version
+    repository: "oci://public.ecr.aws/karpenter"

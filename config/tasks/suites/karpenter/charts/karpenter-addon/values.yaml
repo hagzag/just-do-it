@@ -1,0 +1,81 @@
+ec2nodeclasses:
+  - name: default-services
+    amiFamily: AL2
+    amiSelectorTerms:
+      - name: amazon-eks-node-1.31-v*
+        owner: amazon
+    blockDeviceMappings:
+      - deviceName: /dev/xvda
+        ebs:
+          deleteOnTermination: true
+          encrypted: false
+          volumeSize: 200G
+          volumeType: gp3
+    instanceProfile: Karpenter-ds-dev-cluster-20250121142907189600000007
+    securityGroupSelectorTerms:
+      - tags:
+          Name: ds-dev-cluster-node
+    subnetSelectorTerms:
+      - tags:
+          karpenter.sh/discovery: datascience-dev
+    tags:
+      Name: karpenter.sh/nodeclass/data-science-default
+      deployment_type: dev_data_science_service
+      description: Default nodeclass for data science services
+      karpenter.sh/discovery: ds-dev-cluster
+      team: devops
+      type: service
+      user_email: devops@tikalk.dev
+
+nodePools:
+  - name: "default-services-node-pool"
+    requirements:
+    - key: kubernetes.io/arch
+      operator: In
+      values: ["amd64"]
+    - key: kubernetes.io/os
+      operator: In
+      values: ["linux"]
+    - key: karpenter.sh/capacity-type
+      operator: In
+      values: ["on-demand"]
+    - key: karpenter.k8s.aws/instance-category
+      operator: In
+      values: ["c", "m", "r"]
+    - key: karpenter.k8s.aws/instance-generation
+      operator: Gt
+      values: ["2"]
+    nodeClassRef: default-services
+    limits:
+      cpu: 1000
+    disruption:
+      consolidationPolicy: WhenEmptyOrUnderutilized
+      consolidateAfter: 1m
+
+inflate: false
+
+replicaCount: 0
+
+# This section builds out the service account more information can be found here: https://kubernetes.io/docs/concepts/security/service-accounts/
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Automatically mount a ServiceAccount's API credentials?
+  automount: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+image:
+  repository: public.ecr.aws/eks-distro/kubernetes/pause
+  # This sets the pull policy for images.
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: 3.7
+
+podSecurityContext:
+  runAsUser: 1000
+  runAsGroup: 3000
+  fsGroup: 2000

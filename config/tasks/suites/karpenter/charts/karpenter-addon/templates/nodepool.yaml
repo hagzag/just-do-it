@@ -1,0 +1,23 @@
+{{- range .Values.nodePools }}
+---
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: {{ .name }}
+spec:
+  template:
+    spec:
+      requirements:
+        {{ .requirements | toYaml | nindent 8 }}
+      nodeClassRef:
+        group: karpenter.k8s.aws
+        kind: EC2NodeClass
+        name: {{ .nodeClassRef | default "default-services" }}
+      expireAfter: {{ .expireAfter | default "720h" }}
+  limits:
+    cpu: {{ .limits.cpu }}
+  disruption:
+    consolidationPolicy: {{ .disruption.consolidationPolicy | default "WhenEmptyOrUnderutilized" }}
+    consolidateAfter: {{ .disruption.consolidateAfter | default "1m" }}
+{{- end }}
+

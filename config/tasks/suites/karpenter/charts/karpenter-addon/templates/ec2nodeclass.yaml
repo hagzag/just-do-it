@@ -1,0 +1,36 @@
+{{- range .Values.ec2nodeclasses }}
+---
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  name: {{ .name }}
+spec:
+  amiFamily: {{ .amiFamily | default "AL2" }}
+  amiSelectorTerms:
+  {{- range .amiSelectorTerms }}
+  - name: {{ .name }}
+    owner: {{ .owner }}
+  {{- end }}
+  blockDeviceMappings:
+  {{- range .blockDeviceMappings }}
+  - deviceName: {{ .deviceName }}
+    ebs:
+      deleteOnTermination: {{ .ebs.deleteOnTermination | default true }}
+      encrypted: {{ .ebs.encrypted | default false }}
+      volumeSize: {{ .ebs.volumeSize }}
+      volumeType: {{ .ebs.volumeType | default "gp3" }}
+  {{- end }}
+  instanceProfile: {{ .instanceProfile }}
+  securityGroupSelectorTerms:
+  {{- range .securityGroupSelectorTerms }}
+  - tags:
+      {{- toYaml .tags | nindent 6 }}
+  {{- end }}
+  subnetSelectorTerms:
+  {{- range .subnetSelectorTerms }}
+  - tags:
+      {{- toYaml .tags | nindent 6 }}
+  {{- end }}
+  tags:
+    {{- toYaml .tags | nindent 4 }}
+{{- end }}
