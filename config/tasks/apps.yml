@@ -30,3 +30,6 @@ includes:
   
   # object storage
   minio: ./apps/minio.yaml
+
+  # dagster
+  dagster: ./apps/dagster.yaml

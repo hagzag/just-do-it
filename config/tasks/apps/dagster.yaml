@@ -1,0 +1,18 @@
+---
+version: '3'
+
+silent: true
+
+tasks:
+
+
+  install-argo-app:
+    desc: Installs nginx resources manually on the local cluster
+    dir: config/apps/
+    cmds:
+    - kubectl apply -f dagster.yaml
+
+  rm:
+    dir: config/apps/
+    cmds:
+    - kubectl delete -n argocd -f dagster.yaml
