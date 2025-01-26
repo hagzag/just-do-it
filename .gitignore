@@ -1,6 +1,8 @@
 .env
 *.pem
 .config/tls/base/tls-secret.yaml
+tls.crt
+tls.key
 *.tgz
 storage/
 .config/.dockerconfig.json
