@@ -44,3 +44,4 @@ venv
 .idea/*
 *-credentials.ini
 *-credentials.json
+config/apps/dagster-workspace/
