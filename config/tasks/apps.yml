@@ -30,3 +30,6 @@ includes:
   
   # object storage
   minio: ./apps/minio.yaml
+
+  # cert-manager
+  cert-manager: ./apps/cert-manager.yaml
