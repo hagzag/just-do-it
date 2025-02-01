@@ -1,0 +1,9 @@
+apiVersion: v2
+name: 'actions-runner-controller'
+description: A Helm chart for wrapping actions-runner-controller
+version: 0.1.0
+appVersion: 0.1.0
+dependencies:
+  - name: 'actions-runner-controller'
+    version: '0.23.7'
+    repository: "https://actions-runner-controller.github.io/actions-runner-controller"

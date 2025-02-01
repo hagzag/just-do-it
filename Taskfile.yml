@@ -172,3 +172,13 @@ tasks:
     desc: Run the chartmeusem project
     cmds:
     - task: app:chartmeusem:rm
+
+  actions-runner-controller:
+    desc: Run the actions-runner-controller project
+    cmds:
+    - task: k3d:cluster:create
+    - task: app:reflector:install
+    - task: ingress-nginx
+    - task: app:cert-manager:install-dev-via-helm
+    - task: suite:actions-runner-controller:install-dev
+
