@@ -13,7 +13,8 @@ tasks:
       - VALUES_FILES
       - NAMESPACE
     cmds:
-      - helm dependency build {{.CHART_FOLDER}} --skip-refresh
+      - helm dependency update --skip-refresh {{.CHART_FOLDER}}
+      # - helm dependency build {{.CHART_FOLDER}} --skip-refresh
 
   install:
     desc: "Install Helm chart for {{.CHART_FOLDER}} in {{.NAMESPACE}} namespace"

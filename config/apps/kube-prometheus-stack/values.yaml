@@ -13,11 +13,11 @@ kube-prometheus-stack:
     enabled: true
   grafana:
     admin:
-      existingSecret: kube-prometheus-stack-secret
-      userKey: GRAFANA_ADMIN_USER
-      passwordKey: GRAFANA_ADMIN_PASSWORD
-    # existingSecret: infra-global-monitoring
-    # adminPassword: Us3G!tLabAuth
+    #   existingSecret: kube-prometheus-stack-secret
+    #   userKey: GRAFANA_ADMIN_USER
+    #   passwordKey: GRAFANA_ADMIN_PASSWORD
+    # # existingSecret: infra-global-monitoring
+    # adminPassword: 
 
     # allowed_organizations:
     # team_ids:
@@ -82,7 +82,8 @@ kube-prometheus-stack:
       paths:
       - /
       tls:
-       - secretName: tls-secret
+      - secretName: tls-secret
+      ingressClassName: nginx
   prometheus: # should be internal / add security layer
     ingress:
       enabled: true
@@ -94,8 +95,7 @@ kube-prometheus-stack:
       paths:
       - /
       tls:
-       - secretName: tls-secret
-      
+      - secretName: tls-secret      
   alertmanager: # should be internal / add security layer
     ingress:
       enabled: true
@@ -107,4 +107,5 @@ kube-prometheus-stack:
       paths:
       - /
       tls:
-       - secretName: tls-secret
+      - secretName: tls-secret
+

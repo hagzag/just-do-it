@@ -1,0 +1,203 @@
+---
+version: '3'
+
+includes:
+  helm: ../../utils/helm.yaml
+
+vars:
+  kps_controller_name: &kpsname kube-prometheus-stack
+  kps_controller_namespace: monitoring
+  kps_controller_repo: https://prometheus-community.github.io/helm-charts
+  kps_controller_chart_version: '69.2.2'
+
+tasks:
+
+  install-dev:
+    cmds:
+      - task: create-github-token-secret
+      - task: create-wrapper-chart
+      - task: create-values
+      - task: dryrun
+      - task: apply
+      - task: create-runner-deployment
+  
+  install:
+    cmds:
+      - task: dryrun
+      - task: apply
+
+  _uninstall:
+    cmds:
+      - task: uninstall
+
+  create-wrapper-chart:
+    dir: '{{.ROOT_DIR}}/config/apps/'
+    cmds:
+      - task: helm:create-wrapper-chart
+        vars:
+          APP_WRAPPER_NAME: '{{.kps_controller_name}}'
+          APP_NAME: '{{.kps_controller_name}}'
+          APP_REPO: '{{.kps_controller_repo}}'
+          APP_VERSION: '{{.kps_controller_chart_version}}'
+
+  create-values:
+    dir: '{{.ROOT_DIR}}/config/apps/{{.kps_controller_name}}'
+    cmds:
+      - |
+        test -f values.yaml && mv values.yaml values.yaml.bak || true
+        cat<<EOF > values.yaml
+        {{.kps_controller_name}}:
+          prometheusOperator:
+            enabled: true
+            # admissionWebhooks:
+            #   enabled: false
+            tlsProxy:
+              enabled: false
+            testFramework:
+              enabled: false
+          kubeDns:
+            enabled: false
+          coreDns:
+            enabled: true
+          grafana:
+            admin:
+            #   existingSecret: kube-prometheus-stack-secret
+            #   userKey: GRAFANA_ADMIN_USER
+            #   passwordKey: GRAFANA_ADMIN_PASSWORD
+            # # existingSecret: infra-global-monitoring
+            # adminPassword: 
+
+            # allowed_organizations:
+            # team_ids:
+            # role_attribute_path: contains(type, 'user') && 'Admin' || 'Admin'
+            sidecar:
+              dashboards:
+                enabled: true
+                searchNamespace: ALL
+            dashboards:
+              default:
+                mariadb:
+                  gnetId: 13106
+                  datasource: default
+                blackbox-exporter:
+                  gnetId: 14928
+                  datasource: default
+                  revision: 3
+                nginx:
+                  url: https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/grafana/dashboards/nginx.json
+                  datasource: default
+                nginx-request-handling-performance:
+                  url: https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/grafana/dashboards/request-handling-performance.json
+                  datasource: default
+                argocd:
+                  url: https://raw.githubusercontent.com/argoproj/argo-cd/master/examples/dashboard.json
+                  datasource: default
+                argocd-notifications:
+                  url: https://argocd-notifications.readthedocs.io/en/stable/grafana-dashboard.json
+                  datasource: default
+                argocd-image-updater:
+                  url: https://raw.githubusercontent.com/argoproj-labs/argocd-image-updater/master/config/example-grafana-dashboard.json
+                  datasource: default
+                external-secrets:
+                  url: https://gist.githubusercontent.com/MPV/fed281a9cd3297fa8b61387b9004af16/raw/4d88828d6f4d12a405f6ebf5bccedb179f2d9f93/grafana-dashboard-kubernetes-external-secrets.json
+                  datasource: default
+            dashboardProviders:
+              dashboardproviders.yaml:
+                apiVersion: 1
+                providers:
+                - name: 'default'
+                  orgId: 1
+                  folder: ''
+                  type: file
+                  disableDeletion: false
+                  editable: true
+                  options:
+                    path: /var/lib/grafana/dashboards/default
+            additionalDataSources:
+            - name: Loki
+              type: loki
+              url: http://loki.loki.svc.cluster.local:3100
+              isDefault: false
+              jsonData:
+                maxLines: 5000
+            ingress:
+              enabled: true
+              annotations:
+                external-dns.alpha.kubernetes.io/hostname: grafana.k8s.localhost
+                kubernetes.io/ingress.class: nginx
+              hosts:
+              - grafana.k8s.localhost
+              paths:
+              - /
+              tls:
+              - secretName: tls-secret
+              ingressClassName: nginx
+          prometheus: # should be internal / add security layer
+            ingress:
+              enabled: true
+              annotations:
+                external-dns.alpha.kubernetes.io/hostname: prometheus.k8s.localhost
+                kubernetes.io/ingress.class: nginx
+              hosts:
+              - prometheus.k8s.localhost
+              paths:
+              - /
+              tls:
+              - secretName: tls-secret      
+          alertmanager: # should be internal / add security layer
+            ingress:
+              enabled: true
+              annotations:
+                external-dns.alpha.kubernetes.io/hostname: alertmanager.k8s.localhost
+                kubernetes.io/ingress.class: nginx
+              hosts:
+              - alertmanager.k8s.localhost
+              paths:
+              - /
+              tls:
+              - secretName: tls-secret
+
+        EOF
+  
+  dryrun:
+    vars: &kpsvars
+      CHART: '{{.kps_controller_name}}'
+      NAMESPACE: '{{.kps_controller_namespace}}'
+      REPO_URL: '{{.kps_controller_repo}}'
+      VERSION: '{{.kps_controller_chart_version}}'
+      CHART_FOLDER: './config/apps/{{.kps_controller_name}}'
+      VALUES_FILES: './config/apps/{{.kps_controller_name}}/values.yaml'
+    cmds:
+      - task: helm:dependency_build
+        vars: *kpsvars
+      - task: helm:template
+        vars: *kpsvars
+      - task: helm:template_apply_dry_run
+        vars: *kpsvars
+  
+  apply:
+    cmds:
+      - task: helm:dependency_build 
+        vars: *kpsvars
+      - task: helm:install
+        vars: *kpsvars
+  
+  uninstall:
+    cmds:
+      - task: helm:_uninstall
+        vars: *kpsvars
+
+  full-run:
+    cmds:
+      - task: create-wrapper-chart
+      - task: create-values
+      # - task: dryrun
+      - task: apply
+
+  resource-cleanup:
+    cmds:
+      - task: uninstall
+
+  get-grafana-password:
+    cmds:
+      - kubectl get secret -n {{.kps_controller_namespace}} {{.kps_controller_name}}-grafana -o jsonpath="{.data.admin-password}" | base64 --decode

@@ -182,3 +182,7 @@ tasks:
     - task: app:cert-manager:install-dev-via-helm
     - task: suite:actions-runner-controller:install-dev
 
+  monitoring:
+    desc: Run the monitoring project
+    cmds:
+    - task: suite:kube-prometheus-stack:full-run
