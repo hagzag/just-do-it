@@ -1,0 +1,17 @@
+apiVersion: storage.gcp.upbound.io/v1beta1
+kind: Bucket
+metadata:
+  name: crossplane-bucket-demo
+  labels:
+    testing.upbound.io/example-name: bucket-access-control
+spec:
+  forProvider:
+    location: EU
+    # Enforce uniform bucket-level access
+    uniformBucketLevelAccess: true
+    # Prevent public access
+    publicAccessPrevention: "enforced"
+  providerConfigRef:
+    name: default
+  # deletionProtection:
+  #   enabled: true
