@@ -1,0 +1,88 @@
+---
+version: '3'
+
+silent: true
+
+includes:
+  helm: ../utils/helm.yaml
+
+vars:
+  n8n_controller_name: &n8nname n8n
+  n8n_controller_namespace: *n8nname
+  n8n_controller_repo: oci://8gears.container-registry.com/library
+  n8n_controller_chart_version: 0.25.2
+
+tasks:
+
+
+  install:
+    cmds:
+      - task: dryrun
+      - task: apply
+
+  create-wrapper-chart:
+    dir: '{{.ROOT_DIR}}/config/apps/'
+    cmds:
+      - task: helm:create-wrapper-chart
+        vars:
+          APP_WRAPPER_NAME: '{{.n8n_controller_name}}'
+          APP_NAME: '{{.n8n_controller_name}}'
+          APP_REPO: '{{.n8n_controller_repo}}'
+          APP_VERSION: '{{.n8n_controller_chart_version}}'
+
+  create-values:
+    dir: '{{.ROOT_DIR}}/config/apps/{{.n8n_controller_name}}'
+    cmds:
+      - |
+        test -f values.yaml && mv values.yaml values.yaml.bak || true
+        cat<<EOF > values.yaml
+        {{.n8n_controller_name}}:
+          ingress:
+            enabled: true
+            hosts:
+              - host: n8n.k8s.localhost
+                paths:
+                  - "/"
+            tls: 
+            - secretName: tls-secret
+              hosts:
+                - n8n.k8s.localhost
+            className: nginx
+        EOF
+  
+  dryrun:
+    vars: &n8nvars
+      CHART: '{{.n8n_controller_name}}'
+      NAMESPACE: '{{.n8n_controller_namespace}}'
+      REPO_URL: '{{.n8n_controller_repo}}'
+      VERSION: '{{.n8n_controller_chart_version}}'
+      CHART_FOLDER: './config/apps/{{.n8n_controller_name}}'
+      VALUES_FILES: './config/apps/{{.n8n_controller_name}}/values.yaml'
+    cmds:
+      - task: helm:dependency_build
+        vars: *n8nvars
+      - task: helm:template
+        vars: *n8nvars
+      - task: helm:template_apply_dry_run
+        vars: *n8nvars
+  
+  apply:
+    cmds:
+      - task: helm:dependency_build 
+        vars: *n8nvars
+      - task: helm:install
+        vars: *n8nvars
+  
+  full-run:
+    cmds:
+      - test -d ./config/apps/{{.n8n_controller_name}} && mv ./config/apps/{{.n8n_controller_name}} ./config/apps/{{.n8n_controller_name}}.bak || true
+      - task: create-wrapper-chart
+      - task: create-values
+      - task: dryrun
+      - task: apply
+  
+  test-controller:
+    summary: Test the constraint by creating a namespace without the required label
+    cmds:
+      - echo "simulating the descheduler controller"
+      - echo "This was tested manually on eks"
