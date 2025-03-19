@@ -1,9 +1,11 @@
+---
 version: '3'
 
 tasks:
 
   # utility tasks - a.k.a functions
   dependency_build:
+    desc: "Run Helm dependency build for {{.CHART_FOLDER}}"
     requires:
       vars:
       - CHART
@@ -11,41 +13,51 @@ tasks:
       - VALUES_FILES
       - NAMESPACE
     cmds:
-      - helm dependency build {{.CHART_FOLDER}} --skip-refresh
-    desc: "Run Helm dependency build for {{.CHART_FOLDER}}"
+      - helm dependency update --skip-refresh {{.CHART_FOLDER}}
+      # - helm dependency build {{.CHART_FOLDER}} --skip-refresh
 
   install:
+    desc: "Install Helm chart for {{.CHART_FOLDER}} in {{.NAMESPACE}} namespace"
     requires:
       vars:
       - CHART
       - CHART_FOLDER
       - VALUES_FILES
       - NAMESPACE
-    desc: "Install Helm chart for {{.CHART_FOLDER}} in {{.NAMESPACE}} namespace"
     cmds:
       - helm upgrade --install {{.CHART}} -f {{.VALUES_FILES}} -n {{.NAMESPACE}} --create-namespace --wait {{.CHART_FOLDER}}
 
+  _uninstall:
+    desc: "uninstall Helm chart for {{.CHART_FOLDER}} in {{.NAMESPACE}} namespace"
+    requires:
+      vars:
+      - CHART
+      - CHART_FOLDER
+      - NAMESPACE
+    cmds:
+      - helm list -n {{.NAMESPACE}} | grep {{.CHART}}&& helm uninstall {{.CHART}} -n {{.NAMESPACE}} || true
+
   template_apply:
+    desc: "Apply Helm template for {{.CHART_FOLDER}} in {{.CHART}} namespace"
     cmds:
       - helm template --include-crds -f {{.VALUES_FILES}} {{.CHART}} {{.CHART_FOLDER}}  -n {{.NAMESPACE}} --no-hooks | kubectl -n {{.NAMESPACE}} apply -f -
       - helm template --include-crds -f {{.VALUES_FILES}} {{.CHART}} {{.CHART_FOLDER}}  -n {{.NAMESPACE}} | kubectl -n {{.NAMESPACE}}  apply -f -
-    desc: "Apply Helm template for {{.CHART_FOLDER}} in {{.CHART}} namespace"
   
   template_apply_dry_run:
+    desc: "Apply Helm template for {{.CHART_FOLDER}} in {{.CHART}} namespace"
     cmds:
       - helm template --include-crds -f {{.VALUES_FILES}} {{.CHART}} {{.CHART_FOLDER}} --no-hooks | kubectl apply --dry-run=client -f -
       - helm template --include-crds -f {{.VALUES_FILES}} {{.CHART}} {{.CHART_FOLDER}} | kubectl apply --dry-run=client -f -
-    desc: "Apply Helm template for {{.CHART_FOLDER}} in {{.CHART}} namespace"
 
   template_delete:
+    desc: "Apply Helm template for {{.CHART_FOLDER}} in {{.CHART}} namespace"
     cmds:
       - helm template -f {{.VALUES_FILES}} {{.CHART}} {{.CHART_FOLDER}} --no-hooks | kubectl -n {{.NAMESPACE}} delete -f -
-    desc: "Apply Helm template for {{.CHART_FOLDER}} in {{.CHART}} namespace"
 
   template:
+    desc: "Apply Helm template for {{.CHART_FOLDER}} in $1 namespace"
     cmds:
       - helm template -f {{.VALUES_FILES}} {{.CHART}} {{.CHART_FOLDER}}
-    desc: "Apply Helm template for {{.CHART_FOLDER}} in $1 namespace"
 
   repo_add:
     requires:

@@ -1,8 +1,345 @@
+---
 version: '3'
 
 silent: true
 
+includes:
+  helm: ../utils/helm.yaml
+
+vars:
+  argocd_controller_name: &argocdname argo-cd
+  argocd_wrapper_chart_name: *argocdname
+  argocd_controller_namespace: argocd
+  argocd_controller_repo: https://argoproj.github.io/argo-helm
+  argocd_controller_chart_version: 7.7.16
+
 tasks:
+
+  create-argocd-argo-app:
+    vars:
+      GIT_URI:
+        sh: git config --get remote.origin.url
+    cmds:
+      - |
+        argocd login --core && true
+        argocd app get argocd-app 2>/dev/null || \
+        argocd app create argocd-app \
+        --repo https://github.com/hagzag/just-do-it.git \
+        --path config/apps/argocd \
+        --dest-server https://kubernetes.default.svc \
+        --values values.yaml \
+        --dest-namespace argocd \
+        --sync-policy automated \
+        --auto-prune \
+        --self-heal  
+
+  # helm
+
+  install-dev:
+    cmds:
+      - task: create-wrapper-chart
+      - task: create-values
+      - task: dryrun
+      - task: apply
+
+  install:
+    cmds:
+      - task: dryrun
+      - task: apply
+
+  uninstall:
+    cmds:
+      - task: _uninstall
+
+  create-wrapper-chart:
+    dir: '{{.ROOT_DIR}}/config/apps/'
+    cmds:
+      - task: helm:create-wrapper-chart
+        vars:
+          APP_WRAPPER_NAME: '{{.argocd_wrapper_chart_name}}'
+          APP_NAME: '{{.argocd_controller_name}}'
+          APP_REPO: '{{.argocd_controller_repo}}'
+          APP_VERSION: '{{.argocd_controller_chart_version}}'
+
+  dryrun:
+    vars: &argocdvars
+      CHART: '{{.argocd_wrapper_chart_name}}'
+      NAMESPACE: '{{.argocd_controller_namespace}}'
+      REPO_URL: '{{.argocd_controller_repo}}'
+      VERSION: '{{.argocd_controller_chart_version}}'
+      CHART_FOLDER: './config/apps/{{.argocd_wrapper_chart_name}}'
+      VALUES_FILES: './config/apps/{{.argocd_wrapper_chart_name}}/values.yaml'
+    cmds:
+      - task: helm:repo_add
+        vars: *argocdvars
+      - task: helm:dependency_build
+        vars: *argocdvars
+      - task: helm:template
+        vars: *argocdvars
+      - task: helm:template_apply_dry_run
+        vars: *argocdvars
+  
+  apply:
+    cmds:
+      - task: helm:dependency_build 
+        vars: *argocdvars
+      - task: helm:install
+        vars: *argocdvars
+
+  create-values:
+    dir: '{{.ROOT_DIR}}/config/apps/{{.argocd_wrapper_chart_name}}'
+    cmds:
+      - |
+        # this are dev-values.yaml
+        test -f values.yaml && mv values.yaml values.yaml.bak || true
+        cat<<EOF > values.yaml
+        {{.argocd_controller_name}}:
+          fullnameOverride: {{.argocd_wrapper_chart_name}}
+          namespaceOverride: {{.argocd_controller_namespace}}
+          server:
+            ingress:
+              enabled: true
+              hostname: argocd.k8s.localhost
+              ingressClassName: nginx
+              tls: false
+              pathType: ImplementationSpecific
+              extraTls:
+              - secretName: tls-secret
+                hosts:
+                - argocd.k8s.localhost
+          ## Globally shared configuration
+          global:
+            # -- Default domain used by all components
+            ## Used for ingresses, certificates, SSO, notifications, etc.
+            domain: argocd.k8s.localhost
+
+          configs:
+            params:
+              server.insecure: true
+              applicationsetcontroller.enable.progressive.syncs: true
+            cm:
+              application.resourceTrackingMethod: "annotation" # use annotation for tracking required for Crossplane
+              resource.exclusions: |
+                - apiGroups:
+                  - "*"
+                  kinds:
+                  - ProviderConfigUsage
+              resource.customizations: |
+                argoproj.io/Application:
+                  health.lua: |
+                    health_status = {}
+                    health_status.status = "Progressing"
+                    health_status.message = ""
+                    if obj.status ~= nil then
+                      if obj.status.health ~= nil then
+                        health_status.status = obj.status.health.status
+                        if obj.status.health.message ~= nil then
+                          health_status.message = obj.status.health.message
+                        end
+                      end
+                    end
+                    return health_status
+
+                argoproj.io/ApplicationSet:
+                  health.lua: |
+                    health_status = {}
+                    health_status.status = "Progressing"
+                    health_status.message = ""
+                    if obj.status.applicationStatus ~= nil then
+                      healthy = true
+                      message = ""
+                      for i, applicationStatus in ipairs(obj.status.applicationStatus) do
+                        if applicationStatus.status ~= nil then
+                          if applicationStatus.status ~= "Healthy" then
+                            healthy = false
+                          end
+                        end
+                        if applicationStatus.message ~= nil then
+                          message = applicationStatus.message
+                        end
+                      end
+                      if healthy == true then
+                        health_status.status = "Healthy"
+                        health_status.message = message
+                      end
+                      return health_status
+                    end
+
+                "*.upbound.io/*":
+                  health.lua: |
+                    health_status = {
+                      status = "Progressing",
+                      message = "Provisioning ..."
+                    }
+
+                    local function contains (table, val)
+                      for i, v in ipairs(table) do
+                        if v == val then
+                          return true
+                        end
+                      end
+                      return false
+                    end
+
+                    local has_no_status = {
+                      "ProviderConfig",
+                      "ProviderConfigUsage",
+                      "StoreConfig"
+                    }
+
+                    if obj.status == nil and contains(has_no_status, obj.kind) then
+                      health_status.status = "Healthy"
+                      health_status.message = "Resource is up-to-date."
+                      return health_status
+                    end
+
+                    if obj.status == nil or obj.status.conditions == nil then
+                      if obj.kind == "ProviderConfig" then
+                        health_status.status = "Healthy"
+                        health_status.message = "Resource is in use."
+                        return health_status
+                      end
+                      return health_status
+                    end
+
+                    for i, condition in ipairs(obj.status.conditions) do
+                      if condition.type == "LastAsyncOperation" then
+                        if condition.status == "False" then
+                          health_status.status = "Degraded"
+                          health_status.message = condition.message
+                          return health_status
+                        end
+                      end
+
+                      if condition.type == "Synced" then
+                        if condition.status == "False" then
+                          health_status.status = "Degraded"
+                          health_status.message = condition.message
+                          return health_status
+                        end
+                      end
+
+                      if condition.type == "Ready" then
+                        if condition.status == "True" then
+                          health_status.status = "Healthy"
+                          health_status.message = "Resource is up-to-date."
+                          return health_status
+                        end
+                      end
+                    end
+
+                    return health_status
+                
+                "*.crossplane.io/*":
+                  health.lua: |
+                    health_status = {
+                      status = "Progressing",
+                      message = "Provisioning ..."
+                    }
+
+                    local function contains (table, val)
+                      for i, v in ipairs(table) do
+                        if v == val then
+                          return true
+                        end
+                      end
+                      return false
+                    end
+
+                    local has_no_status = {
+                      "Composition",
+                      "CompositionRevision",
+                      "DeploymentRuntimeConfig",
+                      "ControllerConfig",
+                      "ProviderConfig",
+                      "ProviderConfigUsage"
+                    }
+                
+                    if obj.status == nil and contains(has_no_status, obj.kind) then
+                        health_status.status = "Healthy"
+                        health_status.message = "Resource is up-to-date."
+                      return health_status
+                    end
+
+                    if obj.status == nil or obj.status.conditions == nil then
+                      if obj.kind == "ProviderConfig" then
+                        health_status.status = "Healthy"
+                        health_status.message = "Resource is in use."
+                        return health_status
+                      end
+                      return health_status
+                    end
+
+                    for i, condition in ipairs(obj.status.conditions) do
+                      if condition.type == "LastAsyncOperation" then
+                        if condition.status == "False" then
+                          health_status.status = "Degraded"
+                          health_status.message = condition.message
+                          return health_status
+                        end
+                      end
+
+                      if condition.type == "Synced" then
+                        if condition.status == "False" then
+                          health_status.status = "Degraded"
+                          health_status.message = condition.message
+                          return health_status
+                        end
+                      end
+
+                      if contains({"Ready", "Healthy", "Offered", "Established"}, condition.type) then
+                        if condition.status == "True" then
+                          health_status.status = "Healthy"
+                          health_status.message = "Resource is up-to-date."
+                          return health_status
+                        end
+                      end
+                    end
+
+                    return health_status
+        EOF
+
+  _uninstall:
+    cmds:
+      - task: helm:_uninstall
+        vars: *argocdvars
+
+  # kustomize
+  kustomize:install:
+    desc: Installs ArgoCD resources manually on the local cluster
+    dir: config/apps/argocd-kustomize
+    preconditions:
+    - sh: 'which kustomize'
+      msg: 'kustomize {{.PATH_ERROR}}'
+    - sh: 'which kubectl'
+      msg: 'kubectl {{.PATH_ERROR}}'
+    cmds:
+    - kubectl get ns argocd &>/dev/null || kubectl create namespace argocd
+    - kubectl config set-context --current --namespace=argocd --cluster=k3d-{{.CLUSTER_NAME}}
+    - kustomize build | kubectl apply -f -
+    - sleep 10
+    - kustomize build | kubectl apply -f -
+    - kubectl wait deploy/argocd-server -n argocd --for condition=available --timeout=600s
+    - kubectl apply -f ../argocd.yaml
+    - echo ""
+    ignore_error: true
+
+  kustomize:remove:
+    dir: config/apps/argocd-kustomize
+    cmds:
+    - kustomize build | kubectl delete -f -
+    ignore_error: true
+
+  # helpers
+
+  bridge: kubectl port-forward -n argocd svc/argocd-server 8832:80
+
+  password:
+    cmds:
+    - echo -e "\nYour ArgoCD Admin user password is "
+    - kubectl config set-context --current --namespace=argocd --cluster=k3d-{{.CLUSTER_NAME}}
+    - kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d; echo
+    ignore_error: true
 
   secret:
     requires:
@@ -54,41 +391,17 @@ tasks:
       EOF
     ignore_error: true
 
-  install:
-    desc: Installs ArgoCD resources manually on the local cluster
-    dir: config/apps/argocd
-    preconditions:
-    - sh: 'which kustomize'
-      msg: 'kustomize {{.PATH_ERROR}}'
-    - sh: 'which kubectl'
-      msg: 'kubectl {{.PATH_ERROR}}'
+  argo-cd-crossplane-values:
     cmds:
-    - kubectl get ns argocd &>/dev/null || kubectl create namespace argocd
-    - kubectl config set-context --current --namespace=argocd --cluster=k3d-{{.CLUSTER_NAME}}
-    - kustomize build | kubectl apply -f -
-    - sleep 10
-    - kustomize build | kubectl apply -f -
-    - kubectl wait deploy/argocd-server -n argocd --for condition=available --timeout=600s
-    - kubectl apply -f ../argocd.yaml
-    - echo ""
-    ignore_error: true
+      - task: create-values
+        vars:
+          CHART: '{{.CHART}}'
+          NAME: '{{.NAME}}'
+          NAMESPACE: '{{.NAMESPACE}}'
+          REPO_URL: '{{.REPO_URL}}'
+          VERSION: '{{.VERSION}}'
 
-  rm:
-    dir: config/apps/argocd
-    cmds:
-    - kustomize build | kubectl delete -f -
-    ignore_error: true
-
-  bridge: kubectl port-forward -n argocd svc/argocd-server 8832:80
-
-  password:
-    cmds:
-    - echo -e "\nYour ArgoCD Admin user password is "
-    - kubectl config set-context --current --namespace=argocd --cluster=k3d-{{.CLUSTER_NAME}}
-    - kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d; echo
-    ignore_error: true
-
-  create-argo-helm-app:
+  create-argocd-helm-app:
     desc: Create argo app for reloader
     requires:
       vars: [CHART, NAME, NAMESPACE, REPO_URL, VERSION]
@@ -99,7 +412,7 @@ tasks:
       apiVersion: argoproj.io/v1alpha1
       kind: Application
       metadata:
-        name: reloader
+        name: {{.NAME}}
         finalizers:
         - resources-finalizer.argocd.argoproj.io
       spec:

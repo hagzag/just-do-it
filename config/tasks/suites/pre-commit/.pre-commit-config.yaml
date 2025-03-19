@@ -1,23 +1,23 @@
-  repos:
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.0.1
-    hooks:
-    - id: end-of-file-fixer
-    - id: check-case-conflict
-    - id: check-merge-conflict
-    - id: detect-aws-credentials
-      args: ['--allow-missing-credentials']
-    # - id: detect-private-key
-  - repo: local
-    hooks:
-    - id: run-custom-script
-      name: Run /usr/bin/env task --list-all
-      # entry: ./posts/pre-commit/pre-commit.sh
-      entry: /usr/bin/env task --list-all
-      language: script
-      pass_filenames: false
-      stages: [commit]
-  - repo: https://github.com/gruntwork-io/pre-commit
-    rev: v0.1.15
-    hooks:
-    - id: helmlint
+---
+repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v4.0.1
+  hooks:
+  - id: end-of-file-fixer
+  - id: check-case-conflict
+  - id: check-merge-conflict
+  - id: detect-aws-credentials
+    args: ['--allow-missing-credentials']
+  # - id: detect-private-key
+- repo: local
+  hooks:
+  - id: run-custom-script
+    name: Run /usr/bin/env task --list-all
+    entry: /usr/bin/env task --list-all
+    language: script
+    pass_filenames: false
+    stages: [commit]
+- repo: https://github.com/gruntwork-io/pre-commit
+  rev: v0.1.15
+  hooks:
+  - id: helmlint

@@ -1,0 +1,9 @@
+apiVersion: v2
+name: 'sm-operator'
+description: A Helm chart for wrapping sm-operator
+version: 0.1.0
+appVersion: 0.1.0
+dependencies:
+  - name: 'sm-operator'
+    version: '0.1.0-Beta'
+    repository: "https://charts.bitwarden.com/"
