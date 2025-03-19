@@ -19,5 +19,6 @@ includes:
   bitwarden: ./suites/bitwarden/Taskfile.yaml
   crossplane: ./suites/crossplane/Taskfile.yaml
   actions-runner-controller: ./suites/actions-runner-controller/Taskfile.yaml
-  k6: ./suites/k6/Taskfile.yaml
   kube-prometheus-stack: ./suites/kube-prometheus-stack/Taskfile.yaml
+  k6: ./suites/k6/Taskfile.yaml
+  dagster: ./suites/dagster/dagster.yaml

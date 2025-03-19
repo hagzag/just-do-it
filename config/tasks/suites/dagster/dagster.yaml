@@ -1,0 +1,31 @@
+---
+version: '3'
+
+silent: true
+
+tasks:
+
+
+  install-argo-app:
+    desc: Installs nginx resources manually on the local cluster
+    dir: config/apps/
+    cmds:
+    - kubectl apply -f dagster.yaml
+
+  rm:
+    dir: config/apps/
+    cmds:
+    - kubectl delete -n argocd -f dagster.yaml
+
+
+  create-project:
+    desc: Create namespace for dagster
+    dir: config/apps/dagster-workspace
+    cmds:
+    - |
+      python -m venv venv
+      source venv/bin/activate
+      pip list | grep dagster || pip install dagster 
+      pip list | grep dagster-webserver || pip install dagster-webserver
+      dagster project from-example --example deploy_k8s --name deploy_k8s
+      mv deploy_k8s/.* .
