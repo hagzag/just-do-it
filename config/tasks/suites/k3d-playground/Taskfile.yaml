@@ -31,7 +31,7 @@ tasks:
       - review security concepts
       - review observability concepts
     cmds:
-    - k3d cluster list | grep '{{.CLUSTER_NAME}}' || k3d cluster create --config .config/k3d-$CLUSTER_NAME.yaml
+    - k3d cluster list | grep '{{.CLUSTER_NAME}}' || k3d cluster create --config config/k3d/k3d-$CLUSTER_NAME.yaml
     - echo -e "\nYour cluster has been created. Type 'k3d cluster list' to confirm."
     ignore_error: true
     interactive: true
@@ -44,7 +44,7 @@ tasks:
   hosts-file:
     desc: Adds a line to the hosts file if it doesn't already exist.
     generates:
-      - .config/.etchosts
+      - config/k3d/.etchosts
     summary: |
       - Checks if the specified line is present in the hosts file.
       - If the line doesn't exist, adds it to the hosts file.
@@ -54,9 +54,9 @@ tasks:
     #     type: string
     #     required: true
     cmds:
-      - test -f ./.config/.etchosts || touch ./.config/.etchosts
+      - test -f config/k3d/.etchosts || touch config/k3d/.etchosts
       - |
-        cat <<EOF > ./.config/.etchosts
+        cat <<EOF > config/k3d/.etchosts
         127.0.0.1 cluster.localhost
         127.0.0.1 k8s.localhost
         127.0.0.1 demo.k8s.localhost
@@ -64,9 +64,8 @@ tasks:
         127.0.0.1 whoami.k8s.localhost
         127.0.0.1 example.k8s.localhost
         127.0.0.1 chartmuseum.k8s.localhost
-        127.0.0.1 awx.k8s.localhost
         EOF
-      - grep -qF "127.0.0.1 {{.CLUSTER_NAME}}.k8s.localhost" ./.config/.etchosts || echo "127.0.0.1 {{.CLUSTER_NAME}}.k8s.localhost" | sudo tee -a ./.config/.etchosts
+      - grep -qF "127.0.0.1 {{.CLUSTER_NAME}}.k8s.localhost" config/k3d/.etchosts || echo "127.0.0.1 {{.CLUSTER_NAME}}.k8s.localhost" | sudo tee -a config/k3d/.etchosts
 
     ignore_error: true
 
@@ -76,7 +75,7 @@ tasks:
       This task will create a k3d cluster template for '{{.CLUSTER_NAME}}' which will be used to create the k3d cluster.
       see `cluster-create` summary for more details.
     generates:
-    - .config/k3d.yaml
+    - config/k3d/k3d.yaml
     requires:
       vars:
         - K3D_LOCAL_STORAGE_DIR_NAME
@@ -85,7 +84,7 @@ tasks:
     - task: hosts-file
     - |
       echo "K3D_LOCAL_STORAGE_PATH: $K3D_LOCAL_STORAGE_PATH"
-      cat<<EOF>.config/k3d-{{.CLUSTER_NAME}}.yaml
+      cat<<EOF>config/k3d/k3d-{{.CLUSTER_NAME}}.yaml
       #
       # Twinker with the template at your own risk :)
       #
@@ -134,7 +133,6 @@ tasks:
         - app.k8s.localhost
         - example.k8s.localhost
         - whoami.k8s.localhost
-        - awx.k8s.localhost
         - $CLUSTER_NAME.k8s.localhost
       options:
         k3d:
@@ -148,7 +146,7 @@ tasks:
           - arg: --disable=traefik
             nodeFilters:
             - server:*
-          - arg: --tls-san=localhost,127.0.0.1,registry.localhost,k8s.localhost,cluster.localhost,k8s.localhost,demo.k8s.localhost,app.k8s.localhost,example.k8s.localhost,whoami.k8s.localhost,awx.k8s.localhost,$CLUSTER_NAME.k8s.localhost
+          - arg: --tls-san=localhost,127.0.0.1,registry.localhost,k8s.localhost,cluster.localhost,k8s.localhost,demo.k8s.localhost,app.k8s.localhost,example.k8s.localhost,whoami.k8s.localhost,$CLUSTER_NAME.k8s.localhost
             nodeFilters:
             - server:*
           - arg: --kube-proxy-arg=metrics-bind-address=0.0.0.0
@@ -174,16 +172,16 @@ tasks:
     summary: |
       Configuring Local DNS configuration through hostctl
     cmds:
-      - sleep 0.01 && {{if eq OS "windows"}}hostctl add k8s -q < .config/.etchosts{{else}}sudo hostctl add k8s -q < .config/.etchosts{{end}}
+      - sleep 0.01 && {{if eq OS "windows"}}hostctl add k8s -q < config/k3d/.etchosts{{else}}sudo hostctl add k8s -q < config/.etchosts{{end}}
       - echo -e "Added 'k8s.localhost' and related domains to your hosts file!"
 
   certs:
     desc: Creates and uploads local certificates to the cluster as tls secrets
-    dir: .config/tls
+    dir: config/k3d/tls
     generates:
-      - .config/tls/ca.pem
-      - .config/tls/cert.pem
-      - .config/tls/key.pem
+      - config/k3d/tls/ca.pem
+      - config/k3d/tls/cert.pem
+      - config/k3d/tls/key.pem
     preconditions:
       - sh: "which mkcert"
         msg: "mkcert {{.PATH_ERROR}}"
@@ -192,7 +190,6 @@ tasks:
     cmds:
       - echo -e "Creating local certificates\n"
       - rm cert.pem key.pem base/tls-secret.yaml ca.pem 2> /dev/null
-      - cp -r {{.ROOT_DIR}}/config/tls/* {{.ROOT_DIR}}/.config/tls
       - mkcert -install
       - mkcert -cert-file cert.pem -key-file key.pem -p12-file p12.pem "*.k8s.localhost" k8s.localhost "*.localhost" ::1 127.0.0.1 localhost 127.0.0.1 "*.internal.localhost" "*.local" 2> /dev/null
       - echo -e "Creating certificate secrets on Kubernetes for local TLS enabled by default\n"

@@ -1,0 +1,8 @@
+127.0.0.1 cluster.localhost
+127.0.0.1 k8s.localhost
+127.0.0.1 demo.k8s.localhost
+127.0.0.1 app.k8s.localhost
+127.0.0.1 whoami.k8s.localhost
+127.0.0.1 example.k8s.localhost
+127.0.0.1 chartmuseum.k8s.localhost
+127.0.0.1 playground.k8s.localhost

@@ -114,7 +114,7 @@ tasks:
     - task: k3d:cluster:create
     - task: app:sealed-secrets:install-kubeseal
     - task: app:sealed-secrets:create-private-key
-    - kubectl apply -k .config/sealed-secrets
+    - kubectl apply -k config/sealed-secrets
     - task: app:sealed-secrets:local-apply
 
   # policy enforcement | goldilocks
