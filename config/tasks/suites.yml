@@ -9,23 +9,16 @@ includes:
   production-rediness-external-dns: ./suites/production-rediness-series/external-dns/Taskfile.yaml
   git-workflow: ./suites/git-workkflow/Taskfile.yaml
   git: ./suites/git-workkflow/git.yaml
-
   coredns: ./suites/coredns/Taskfile.yaml
   pre-commit: ./suites/pre-commit/Taskfile.yaml
   vault: ./suites/vault-eso/Taskfile.yaml
   awx: ./suites/awx/Taskfile.yaml
-
-  # # scaling
   goldilocks: ./suites/goldilocks/Taskfile.yaml
-
-  # # policy
   gatekeeper: ./suites/gatekeeper/Taskfile.yaml
   gatekeeper-pm: ./suites/gatekeeper-policy-manager/Taskfile.yaml
-
   bitwarden: ./suites/bitwarden/Taskfile.yaml
-  # # observability
-  #TODO: monitoring-n-logging: ./monitoring-n-logging.yaml
   crossplane: ./suites/crossplane/Taskfile.yaml
-
-  # dagster
+  actions-runner-controller: ./suites/actions-runner-controller/Taskfile.yaml
+  kube-prometheus-stack: ./suites/kube-prometheus-stack/Taskfile.yaml
+  k6: ./suites/k6/Taskfile.yaml
   dagster: ./suites/dagster/dagster.yaml
