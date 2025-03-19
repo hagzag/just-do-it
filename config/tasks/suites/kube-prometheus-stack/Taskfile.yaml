@@ -122,9 +122,6 @@ tasks:
                 maxLines: 5000
             ingress:
               enabled: true
-              annotations:
-                external-dns.alpha.kubernetes.io/hostname: grafana.k8s.localhost
-                kubernetes.io/ingress.class: nginx
               hosts:
               - grafana.k8s.localhost
               paths:
@@ -135,9 +132,6 @@ tasks:
           prometheus: # should be internal / add security layer
             ingress:
               enabled: true
-              annotations:
-                external-dns.alpha.kubernetes.io/hostname: prometheus.k8s.localhost
-                kubernetes.io/ingress.class: nginx
               hosts:
               - prometheus.k8s.localhost
               paths:
@@ -147,9 +141,6 @@ tasks:
           alertmanager: # should be internal / add security layer
             ingress:
               enabled: true
-              annotations:
-                external-dns.alpha.kubernetes.io/hostname: alertmanager.k8s.localhost
-                kubernetes.io/ingress.class: nginx
               hosts:
               - alertmanager.k8s.localhost
               paths:
