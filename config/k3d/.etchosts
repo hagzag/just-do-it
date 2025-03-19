@@ -5,5 +5,4 @@
 127.0.0.1 whoami.k8s.localhost
 127.0.0.1 example.k8s.localhost
 127.0.0.1 chartmuseum.k8s.localhost
-127.0.0.1 awx.k8s.localhost
 127.0.0.1 playground.k8s.localhost
