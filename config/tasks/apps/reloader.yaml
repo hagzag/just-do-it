@@ -1,0 +1,98 @@
+---
+version: '3'
+
+silent: true
+
+includes:
+  helm: ../utils/helm.yaml
+
+vars:
+  rl_controller_name: &rlname reloader
+  rl_controller_namespace: *rlname
+  rl_controller_repo: https://stakater.github.io/stakater-charts
+  rl_controller_chart_version: 1.0.38
+  rl_local_registry: 'registry.localhost:5002'
+
+tasks:
+
+  install-dev:
+    cmds:
+      - task: set-argocd-context
+      - task: dryrun
+      - task: apply
+
+  install:
+    cmds:
+      - task: dryrun
+      - task: apply
+
+  create-wrapper-chart:
+    dir: '{{.ROOT_DIR}}/config/apps/'
+    cmds:
+      - task: helm:create-wrapper-chart
+        vars:
+          APP_WRAPPER_NAME: '{{.rl_controller_name}}'
+          APP_NAME: '{{.rl_controller_name}}'
+          APP_REPO: '{{.rl_controller_repo}}'
+          APP_VERSION: '{{.rl_controller_chart_version}}'
+
+  create-values:
+    dir: '{{.ROOT_DIR}}/config/apps/{{.rl_controller_name}}'
+    cmds:
+      - |
+        test -f values.yaml && mv values.yaml values.yaml.bak || true
+        cat<<EOF > values.yaml
+        {{.rl_controller_name}}:
+          kubernetes:
+            host: https://kubernetes.default
+          reloader:
+            isArgoRollouts: true
+            isOpenshift: false
+            ignoreSecrets: false
+            ignoreConfigMaps: false
+            reloadOnCreate: true
+            reloadStrategy: default
+            ignoreNamespaces: ""
+            logFormat: ""
+            watchGlobally: true
+            readOnlyRootFileSystem: false
+        EOF
+  
+  dryrun:
+    vars: &rlvars
+      CHART: '{{.rl_controller_name}}'
+      NAMESPACE: '{{.rl_controller_namespace}}'
+      REPO_URL: '{{.rl_controller_repo}}'
+      VERSION: '{{.rl_controller_chart_version}}'
+      CHART_FOLDER: './config/apps/{{.rl_controller_name}}'
+      VALUES_FILES: './config/apps/{{.rl_controller_name}}/values.yaml'
+    cmds:
+      - task: helm:repo_add
+        vars: *rlvars
+      - task: helm:dependency_build
+        vars: *rlvars
+      - task: helm:template
+        vars: *rlvars
+      - task: helm:template_apply_dry_run
+        vars: *rlvars
+  
+  apply:
+    cmds:
+      - task: helm:dependency_build 
+        vars: *rlvars
+      - task: helm:install
+        vars: *rlvars
+  
+  full-run:
+    cmds:
+      - test -d ./config/apps/{{.rl_controller_name}} && mv ./config/apps/{{.rl_controller_name}} ./config/apps/{{.rl_controller_name}}.bak || true
+      - task: create-wrapper-chart
+      - task: create-values
+      - task: dryrun
+      - task: apply
+  
+  test-controller:
+    summary: Test the constraint by creating a namespace without the required label
+    cmds:
+      - echo "simulating the descheduler controller"
+      - echo "This was tested manually on eks"

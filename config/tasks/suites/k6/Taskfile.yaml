@@ -1,0 +1,25 @@
+version: '3'
+
+vars:
+  K6_ITERATIONS: 6
+
+tasks:
+
+
+  install:
+    cmds:
+      # - go install github.com/grafana/k6/cmd/k6@latest
+      - brew install k6
+
+  run:
+    dir: config/tasks/suites/k6
+    cmds:
+      - k6 run api-test.js
+
+  run-with-itterations:
+    dir: config/tasks/suites/k6
+    vars:
+      iterations: '{{.K6_ITERATIONS}}'
+    cmds:
+      - k6 run --iterations {{.iterations}} api-test.js
+

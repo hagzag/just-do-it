@@ -1,0 +1,273 @@
+---
+version: '3'
+
+silent: true
+
+includes:
+  helm: ../utils/helm.yaml
+  argocd: ../apps/argo-cd.yaml
+
+vars:
+  mi_controller_name: &miname minio
+  mi_controller_namespace: minio
+  mi_controller_repo: https://charts.min.io/
+  mi_controller_chart_version: 4.0.15
+  mi_local_registry: 'registry.localhost:5002'
+tasks:
+
+  install-dev:
+    cmds:
+      - task: set-ns-context
+      - task: dryrun
+      - task: apply
+
+  install:
+    cmds:
+      - task: dryrun
+      - task: apply
+
+  create-wrapper-chart:
+    dir: '{{.ROOT_DIR}}/config/apps/'
+    cmds:
+      - task: helm:create-wrapper-chart
+        vars:
+          APP_WRAPPER_NAME: '{{.mi_controller_name}}'
+          APP_NAME: '{{.mi_controller_name}}'
+          APP_REPO: '{{.mi_controller_repo}}'
+          APP_VERSION: '{{.mi_controller_chart_version}}'
+
+  create-values:
+    dir: '{{.ROOT_DIR}}/config/apps/{{.mi_controller_name}}'
+    cmds:
+      - |
+        # this are dev-values.yaml
+        test -f values.yaml && mv values.yaml values.yaml.bak || true
+        cat<<EOF > values.yaml
+        {{.mi_controller_name}}:
+          environment:
+            MINIO_BROWSER_REDIRECT_URL: https://minio-console.k8s.localhost
+          ingress:
+            
+            enabled: true
+            ingressClassName: nginx
+            path: /
+            hosts:
+              - minio.k8s.localhost
+            tls:
+              - secretName: tls-secret
+                hosts:
+                  - minio.k8s.localhost
+          consoleIngress:
+            enabled: true
+            ingressClassName: nginx
+            path: /
+            hosts:
+              - minio-console.k8s.localhost
+            tls:
+              - secretName: minio-console-tls
+                hosts:
+                  - minio-console.k8s.localhost
+          replicas: 1
+          rootUser: admin
+          rootPassword: changeme
+          persistence:
+            enabled: true
+            existingClaim: local-path-pvc
+            storageClass: "local-path"
+            accessMode: ReadWriteOnce
+            size: 512Mi
+          resources:
+            requests:
+              memory: 500Mi
+          gateway:
+            replicas: 1
+          mode: standalone
+          buckets:
+          - name: chartmuseum
+            policy: none
+            purge: true
+            versioning: false
+            objectlocking: false
+          - name: argo-artifacts
+            policy: public
+            purge: true
+            versioning: false
+            objectlocking: false
+          - name: gitlab-backup
+            policy: none
+            purge: true
+            versioning: false
+            objectlocking: false
+          # - name: github-backup
+          #   policy: none
+          #   purge: true
+          #   versioning: false
+          #   objectlocking: false
+          # - name: subscription-state-store
+          #   policy: none
+          #   purge: true
+          #   versioning: false
+          #   objectlocking: false
+          # - name: vault-backend
+          #   policy: none
+          #   purge: true
+          #   versioning: false
+          #   objectlocking: false
+        EOF
+  
+  dryrun:
+    vars: &mivars
+      NAME: '{{.mi_controller_name}}'
+      CHART: '{{.mi_controller_name}}'
+      NAMESPACE: '{{.mi_controller_namespace}}'
+      REPO_URL: '{{.mi_controller_repo}}'
+      VERSION: '{{.mi_controller_chart_version}}'
+      CHART_FOLDER: './config/apps/{{.mi_controller_name}}'
+      VALUES_FILES: './config/apps/{{.mi_controller_name}}/values.yaml'
+    cmds:
+      - task: helm:repo_add
+        vars: *mivars
+      - task: helm:dependency_build
+        vars: *mivars
+      - task: helm:template
+        vars: *mivars
+      - task: helm:template_apply_dry_run
+        vars: *mivars
+  
+  apply:
+    cmds:
+      - task: helm:dependency_build 
+        vars: *mivars
+      - task: helm:install
+        vars: *mivars
+  
+  full-run:
+    cmds:
+      - task: create-wrapper-chart
+      - task: create-values
+      - task: add_additional_templates
+      - task: dryrun
+      - task: apply
+        
+
+  set-ns-context:
+    internal: true
+    cmds:
+    - kubectl config set-context --current --namespace {{.mi_controller_namespace}} --cluster=k3d-{{.CLUSTER_NAME}}
+  
+
+  # with argocd
+
+  create-argo-helm-app:
+    desc: Create argo app for reloader
+    cmds:
+      - task: argocd:create-argo-helm-app
+        vars: *mivars
+
+  argocd-app:
+    desc: Create argo app for reloader
+    cmds:
+      - kubectl config set-context --current --namespace=argocd
+      - task: argocd:create-argo-helm-app
+        vars: *mivars
+        
+  install-argocd-app:
+    desc: Installs nginx as argocCD application
+    dir: config/apps/
+    cmds:
+    - task: set-argocd-context
+    - kubectl apply -f {{.mi_controller_name}}.yaml
+  
+  delete-argocd-app:
+    dir: config/apps/
+    cmds:
+    - task: set-argocd-context
+    - kubectl delete -f ingress-nginx.yaml
+    ignore_error: true
+  
+  set-argocd-context:
+    internal: true
+    cmds:
+    - kubectl config set-context --current --namespace=argocd --cluster=k3d-{{.CLUSTER_NAME}}
+  
+  add_additional_templates:
+    vars: *mivars
+    desc: "Add additional templates for {{.CHART_FOLDER}} in {{.CHART}} namespace"
+    cmds:
+      - test -d {{.CHART_FOLDER}}/templates/ || mkdir {{.CHART_FOLDER}}/templates/
+      - |
+        # kubectl apply -f - <<EOF
+        cat <<EOF > {{.CHART_FOLDER}}/templates/local-path-pvc.yaml
+        apiVersion: v1
+        kind: PersistentVolumeClaim
+        metadata:
+          name: local-path-pvc
+          namespace: minio
+          annotations:
+            argocd.argoproj.io/sync-wave: '10'
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          storageClassName: local-path
+          resources:
+            requests:
+              storage: 512Mi
+        EOF
+
+      - |
+        # kubectl apply -f - <<EOF
+        cat <<EOF > {{.CHART_FOLDER}}/templates/k8s-toolkit-minio.yaml
+        apiVersion: v1
+        kind: ServiceAccount
+        metadata:
+          name: k8s-toolkit-minio
+          namespace: minio
+        ---
+        apiVersion: rbac.authorization.k8s.io/v1
+        kind: Role
+        metadata:
+          name: k8s-toolkit-minio
+          namespace: minio
+        rules:
+          - apiGroups:
+              - apps
+            resources:
+              - deployments
+              - statefulsets
+            verbs:
+              - get
+              - watch
+              - list
+        ---
+        apiVersion: rbac.authorization.k8s.io/v1
+        kind: RoleBinding
+        metadata:
+          name: k8s-toolkit-minio
+          namespace: minio
+        roleRef:
+          apiGroup: rbac.authorization.k8s.io
+          kind: Role
+          name: k8s-toolkit-minio
+        subjects:
+          - kind: ServiceAccount
+            name: k8s-toolkit-minio
+            namespace: minio
+        ---
+        apiVersion: batch/v1
+        kind: Job
+        metadata:
+          name: wait-minio-buckets
+          namespace: minio
+        spec:
+          template:
+            spec:
+              containers:
+                - args:
+                    - wait-for
+                    - minio-buckets
+                  image: public.ecr.aws/kubefirst/kubernetes-toolkit:0.0.8
+                  imagePullPolicy: IfNotPresent
+                  name: wait
+              restartPolicy: OnFailure
+              serviceAccountName: k8s-toolkit-minio
+        EOF

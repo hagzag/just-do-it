@@ -1,0 +1,66 @@
+---
+version: '3'
+
+silent: true
+
+tasks:
+
+  all:
+    - task: secret
+    - task: apply-loki-stack
+    - task: apply-kube-prometheus-stack
+
+  secret:
+    requires:
+      vars: [GH_USER, GH_PASS]
+    vars:
+      #GRAFANA_ADMIN_USER: '{{.CLUSTER_NAME}}'
+      GIT_URI:
+        sh: git config --get remote.origin.url
+    cmds:
+    - kubectl get ns argocd || kubectl create ns argocd
+    - |
+      kubectl apply -f - << EOF
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: kube-prometheus-stack-secret
+        namespace: monitoring
+      stringData:
+        GRAFANA_ADMIN_PASSWORD: '{{.GRAFANA_ADMIN_PASSWORD}}'
+        GRAFANA_ADMIN_USER: '{{.GRAFANA_ADMIN_USER}}'
+      EOF
+    ignore_error: true
+
+  apply-loki-stack:
+    dir: ./config/apps/loki
+    desc: Applies the loki stack.
+    summary: |
+      - Adds the Grafana repository.
+      - Updates the repositories.
+      - Installs the loki stack.
+    cmds:
+      - helm dependency update --skip-refresh
+      - helm upgrade --install -f values.yaml --namespace loki --create-namespace loki .
+
+    ignore_error: true
+    interactive: true
+
+  apply-kube-prometheus-stack:
+    dir: ./config/apps/kube-prometheus-stack
+    desc: Applies the kube-prometheus stack.
+    summary: |
+      - Adds the Grafana repository.
+      - Updates the repositories.
+      - Installs the kube-prometheus stack.
+    cmds:
+      - helm dependency update --skip-refresh
+      - helm upgrade --install -f values.yaml --namespace monitoring --create-namespace kube-prometheus-stack .
+
+    ignore_error: true
+    interactive: true
+  
+  create-argo-apps:
+    cmds:
+      - kubectl apply -f ./config/apps/loki.yaml
+      - kubectl apply -f ./config/apps/kube-prometheus-stack.yaml

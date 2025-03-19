@@ -1,0 +1,103 @@
+---
+version: '3'
+
+vars:
+  DEFAULT_BRANCH: main
+  DEFAULT_REMOTE: origin
+
+tasks:
+
+  workflow:init:
+    interactive: true
+    desc: Run the workflow
+    requires:
+      vars:
+        - PR_NAME
+    cmds:
+    - task: open-pr-with-name-as-input
+
+  workflow:continue:
+    interactive: true
+    desc: Continue the workflow
+    cmds:
+    - task: commit-changes-to-local-feature-brnach
+
+  workflow:publish:  
+    interactive: true
+    desc: Continue the workflow
+    cmds:
+    - task: push-pr-branch-changes-to-default-remote
+
+  workflow:close:
+    interactive: true
+    desc: Continue the workflow
+    cmds:
+    - task: merge-feature-branch-into-default-branch
+
+  workflow:reset:
+    interactive: true
+    desc: Reset the workflow
+    cmds:
+    - task: reset:soft
+
+  reset:soft:
+    # internal: true
+    desc: Reset the workflow
+    cmds:
+    - git reset --soft
+    - git checkout {{.DEFAULT_BRANCH}}
+    - git branch | grep {{.PR_NAME}} && git branch -D {{.PR_NAME}} || echo "branch {{.PR_NAME}} does not exist"
+  
+  reset:_hard:
+    internal: true
+    desc: Reset the workflow
+    cmds:
+    - git reset --hard
+    - git checkout {{.DEFAULT_BRANCH}}
+    - git branch -D {{.PR_NAME}}
+
+  open-pr-with-name-as-input:
+    desc: Open a PR with the name as input
+    requires:
+      vars:
+        - PR_NAME
+    prompt: Is this the correct PR name? [[ {{.PR_NAME}} ]] task, should I continue?
+    cmds:
+    - echo "openeing PR with name as input"
+    - git branch | grep {{.PR_NAME}} || git checkout -b {{.PR_NAME}} && echo "branch {{.PR_NAME}} already exists"
+  
+  add-changes-to-pr-brnach:
+    desc: Open a PR with the name as input
+    interactive: true
+    cmds:
+    - echo "adding changes to pr branch"
+    - git add .
+    - git status -sb
+  
+  commit-changes-to-local-feature-brnach:
+    desc: Commit changes to pr branch
+    interactive: true
+    prompt: "please approve the commit message '{{.COMMIT_MSG}}'"
+    cmds:
+    - echo "commiting changes to pr with message \"$COMMIT_MSG\""
+    - git commit -am "$COMMIT_MSG" || echo "no changes to commit"
+
+  push-pr-branch-changes-to-default-remote:
+    desc: Push changes to pr branch
+    preconditions:
+      - git branch --show-current | grep {{.PR_NAME}}
+    cmds:
+    - echo "pushing changes to pr branch"
+    - git push {{.DEFAULT_REMOTE}} {{.PR_NAME}}
+
+  merge-feature-branch-into-default-branch:
+    desc: Merge PR
+    cmds:
+    # - git diff --name-only {{.DEFAULT_BRANCH}} {{.PR_NAME}}
+    - git diff --name-only {{.DEFAULT_BRANCH}} {{.PR_NAME}} | xargs git add
+    - task: commit-changes-to-local-feature-brnach
+    - git fetch origin
+    - git checkout {{.DEFAULT_BRANCH}}
+    - git merge {{.PR_NAME}}
+    - git push {{.DEFAULT_REMOTE}} {{.DEFAULT_BRANCH}}
+  

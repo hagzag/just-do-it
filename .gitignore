@@ -1,6 +1,8 @@
 .env
 *.pem
 .config/tls/base/tls-secret.yaml
+tls.crt
+tls.key
 *.tgz
 storage/
 .config/.dockerconfig.json
@@ -21,12 +23,8 @@ config/apps/**/values.yaml.bak
 .config/sealed-secrets/base/sealed-secrets-key-secret.yaml
 
 # for development resons mainly to ensure i get the latest version + version is specified in version.yaml 
-config/apps/reloader/Chart.lock
-config/apps/reflector/Chart.lock
-config/apps/ingress-nginx/Chart.lock
-config/apps/sealed-secrets/Chart.lock
-config/apps/chartmuseum/Chart.lock
-config/apps/cilium/Chart.lock
+**/Chart.lock
+
 
 .terraform
 tfplan
@@ -37,5 +35,15 @@ terraform.tfvars
 terraform.*.tfvars
 .tmp*
 *.tfstate
-
+# python
 .venv
+venv
+
+# generated files
+*.tar.gz
+*.log
+
+.idea/*
+*-credentials.ini
+*-credentials.json
+config/apps/dagster-workspace/

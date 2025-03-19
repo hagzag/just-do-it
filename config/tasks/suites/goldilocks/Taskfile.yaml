@@ -1,9 +1,10 @@
+---
 version: '3'
 
 silent: true
 
 includes:
-  helm: ../../helm.yaml
+  helm: ../../utils/helm.yaml
 
 vars:
   gl_controller_name: &glname goldilocks

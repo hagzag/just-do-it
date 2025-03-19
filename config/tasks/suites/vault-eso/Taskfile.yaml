@@ -1,3 +1,4 @@
+---
 version: '3'
 
 silent: true
@@ -7,41 +8,57 @@ vars:
   HELM_REPO:  https://helm.releases.hashicorp.com
 
 tasks:
-  install-vault:
-    desc: Installs vault + eso resources manually on the local cluster
-    dir: config/apps/{{.APP}}/{{.APP}}
-    cmds:
-    - helm repo list | grep {{.APP}} &>/dev/null || helm repo add {{.APP}} {{.HELM_REPO}}
-    - kubectl get namespace {{.APP}} &>/dev/null || kubectl create namespace {{.APP}}
-    # - helm pull --untar {{.APP}}/{{.APP}}
-    - helm dep update --skip-refresh
-    # - helm upgrade --install {{.APP}} {{.APP}}/{{.APP}} --namespace {{.APP}} -f values.yaml
-    - helm upgrade --install {{.APP}} --namespace {{.APP}} -f values.yaml .
 
-  uninstall-vault:
+  deploy:all:
+    desc: Installs vault + eso resources manually on the local cluster
+    cmds:
+    - task: install
+    - task: install:eso
+    - task: demo:vault-eso:install
+  
+  cleanup:all:
+    desc: Installs vault + eso resources manually on the local cluster
+    cmds:
+    - task: uninstall
+    - task: uninstall:eso
+    - task: demo:vault-eso:uninstall
+
+  test-result:
+    cmds:
+      - kubectl get -n default secret test -o json | jq '.data | map_values(@base64d)'
+
+  install:
+    desc: Installs vault + eso resources manually on the local cluster
+    dir: '{{.ROOT_DIR}}/config/apps/{{.APP}}/{{.APP}}'
+    cmds:
+    # # - helm pull --untar {{.APP}}/{{.APP}}
+    - helm dep update --skip-refresh
+    - echo $PWD
+    - helm upgrade --install {{.APP}} --namespace {{.APP}} --create-namespace -f values.yaml .
+    # - helm upgrade --install {{.APP}} --namespace {{.APP}} -f values.yaml .
+
+  uninstall:
     desc: Uninstalls vault + eso resources from the local cluster
     dir: config/apps/{{.APP}}/{{.APP}}
     cmds:
     - helm uninstall -n {{.APP}} {{.APP}}
 
-  install-eso:
+  install:eso:
     desc: Installs vault + eso resources manually on the local cluster
     dir: config/apps/{{.APP}}/{{.APP}}-eso
     cmds:
-    - helm repo list | grep external-secrets &>/dev/null || helm repo add external-secrets https://charts.external-secrets.io
-    - kubectl get namespace external-secrets &>/dev/null || kubectl create namespace external-secrets
     # - helm pull --untar {{.APP}}/{{.APP}}
     - helm dep update --skip-refresh
     # - helm upgrade --install {{.APP}} {{.APP}}/{{.APP}} --namespace {{.APP}} -f values.yaml
-    - helm upgrade --install external-secrets --namespace external-secrets -f values.yaml .
+    - helm upgrade --install external-secrets --create-namespace --namespace external-secrets -f values.yaml .
 
-  uninstall-eso:
+  uninstall:eso:
     desc: Uninstalls eso resources from the local cluster
     dir: config/apps/{{.APP}}/{{.APP}}-eso
     cmds:
     - helm uninstall external-secrets --namespace external-secrets
  
-  install-vault-eso-example:
+  demo:vault-eso:install:
     desc: Installs vault + eso resources manually on the local cluster
     dir: config/apps/{{.APP}}/{{.APP}}-eso-example
     cmds:
@@ -50,24 +67,9 @@ tasks:
     # - helm upgrade --install {{.APP}} {{.APP}}/{{.APP}} --namespace {{.APP}} -f values.yaml
     - helm upgrade --install vault-eso-example --namespace default -f values.yaml .
 
-  uninstall-vault-eso-example:
+  demo:vault-eso:uninstall:
     desc: Uninstalls vault + eso resources from the local cluster
     dir: config/apps/{{.APP}}/{{.APP}}-eso-example
     cmds:
     - helm uninstall vault-eso-example --namespace default
   
-  install:
-    cmds:
-    - task: install-vault
-    - task: install-eso
-    - task: install-vault-eso-example
-  
-  uninstall:
-    cmds:
-    - task: uninstall-vault
-    - task: uninstall-eso
-    - task: uninstall-vault-eso-example
-
-  test-result:
-    cmds:
-      - kubectl get -n default secret test -o json | jq '.data | map_values(@base64d)'

@@ -1,0 +1,207 @@
+---
+version: '3'
+vars:
+  CYAN: tput setaf 6
+  RED: tput setaf 1
+  YELLOW: tput setaf 3
+  GREEN: tput setaf 2
+  BLUE: tput setaf 1
+  PURPLE: tput setaf 5
+  BG_B: tput setab 0
+  BOLD: tput bold
+  RESET: tput sgr0
+  CLEAR: tput reset
+  NAMESPACE: monitoring
+  INT_REGISTRY: registry.localhost
+  PATH_ERROR: is not installed or correctly configured in PATH.
+  TAG: latest
+
+env:
+  GIT_URI:
+    sh: git config --get remote.origin.url
+
+silent: true
+
+tasks:
+  gen:
+    cmds:
+    - task: argocd
+    - task: certificate
+    - task: zalando
+    - task: example
+
+  chartmeusem:
+    cmds:
+    - |
+      kubectl apply -f - << EOF
+      apiVersion: argoproj.io/v1alpha1
+      kind: Application
+      metadata:
+        name: chartmuseum
+        namespace: argocd
+      spec:
+        project: default
+        source:
+          repoURL: 'https://chartmuseum.github.io/charts'
+          targetRevision: '3.10.2'
+          chart: chartmuseum
+          helm:
+            values: |
+              ingress:
+                enabled: true
+                ingressClassName: nginx
+                hosts:
+                  - name: chartmuseum.k8s.localhost
+                    pathType: ImplementationSpecific
+                    path: /
+                    tls: true
+                    tlsSecret: tls-secret
+              env:
+                open:
+                  DISABLE_API: false
+                  STORAGE: local
+                  STORAGE_LOCAL_ROOTDIR: /chartstorage
+        destination:
+          server: 'https://kubernetes.default.svc'
+          namespace: chartmuseum
+        syncPolicy:
+          automated:
+            prune: true
+            selfHeal: true
+            allowEmpty: true
+          syncOptions:
+          - Validate=true
+          - CreateNamespace=true
+          - PrunePropagationPolicy=foreground
+          - PruneLast=true
+          - ApplyOutOfSyncOnly=false
+          - Prune=true
+          retry:
+            limit: -1
+            backoff:
+              duration: 20s
+              factor: 2
+              maxDuration: 15m
+
+      EOF
+    ignore_error: true
+
+  argocd:
+    cmds:
+    - |
+      kubectl apply -f - << EOF
+      apiVersion: argoproj.io/v1alpha1
+      kind: Application
+      metadata:
+        name: argocd
+        finalizers:
+          - resources-finalizer.argocd.argoproj.io
+      spec:
+        project: default
+        source:
+          repoURL: '$GIT_URI'
+          path: apps/argocd
+          targetRevision: main
+        destination:
+          namespace: argocd
+          name: in-cluster
+        syncPolicy:
+          automated:
+            prune: true
+            selfHeal: true
+            allowEmpty: true
+          syncOptions:
+          - Validate=true
+          - CreateNamespace=true
+          - PrunePropagationPolicy=foreground
+          - PruneLast=true
+          - ApplyOutOfSyncOnly=false
+          - Prune=true
+          retry:
+            limit: -1
+            backoff:
+              duration: 20s
+              factor: 2
+              maxDuration: 15m
+      EOF
+    ignore_error: true
+
+  certificate:
+    cmds:
+    - |
+      kubectl apply -f - << EOF
+      apiVersion: argoproj.io/v1alpha1
+      kind: Application
+      metadata:
+        name: argocd
+        finalizers:
+          - resources-finalizer.argocd.argoproj.io
+      spec:
+        project: core
+        source:
+          repoURL: '$GIT_URI'
+          path: apps/argocd
+          targetRevision: main
+        destination:
+          namespace: argocd
+          name: in-cluster
+        syncPolicy:
+          automated:
+            prune: true
+            selfHeal: true
+            allowEmpty: true
+          syncOptions:
+          - Validate=true
+          - CreateNamespace=false
+          - PrunePropagationPolicy=foreground
+          - PruneLast=true
+          - ApplyOutOfSyncOnly=false
+          - Prune=true
+          retry:
+            limit: -1
+            backoff:
+              duration: 20s
+              factor: 2
+              maxDuration: 15m
+      EOF
+    ignore_error: true
+
+  example:
+    cmds:
+    - |
+      kubectl apply -f - << EOF
+      apiVersion: argoproj.io/v1alpha1
+      kind: Application
+      metadata:
+        name: example-app
+        finalizers:
+          - resources-finalizer.argocd.argoproj.io
+      spec:
+        project: apps
+        source:
+          repoURL: '$GIT_URI'
+          path: apps/example
+          targetRevision: main
+        destination:
+          namespace: example
+          name: in-cluster
+        syncPolicy:
+          automated:
+            prune: true
+            selfHeal: true
+            allowEmpty: true
+          syncOptions:
+          - Validate=true
+          - CreateNamespace=true
+          - PrunePropagationPolicy=foreground
+          - PruneLast=true
+          - ApplyOutOfSyncOnly=false
+          - Prune=true
+          retry:
+            limit: -1
+            backoff:
+              duration: 20s
+              factor: 2
+              maxDuration: 15m
+      EOF
+    ignore_error: true

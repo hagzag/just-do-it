@@ -2,60 +2,55 @@
 
 ## Goals
 
-- Get into the habbit of working with a secrets manager for local development
-- Learn the basics of `external secrets operator` and it's integration with `vault`
+- Get into the habit of working with a secrets manager for local development
+- Learn the basics of `external secrets operator` and its integration with `vault`
 
-## Perquisites
+## Prerequisites
 
 - k3d
 - helm
 - basic vault understanding
+- task (taskfile)
 
 ### Worth mentioning
 
-This setup will initialize vault with a simple password - the password is `root` and you can use it both in the UI & vault api
+This setup will initialize vault with a simple password - the password is `root` and you can use it both in the UI & vault API
 
 ### Installation
 
-1. The official vault helm-chart for vault
-   
-   ```sh
-   git clone code-samples
-   cd config/apps/vault/vault
-   helm dependency build .
-   helm upgrade vault --install .
-   ```
+You can install all components using a single task command:
 
-2. The official helm-chart for external-secrets
+```sh
+task vault:deploy:all
+```
 
-   ```sh
-   cd config/apps/vault/vault-eso
-   helm dependency build .
-   helm upgrade external-secrets --install .
-   ```
+This will install:
+1. Vault (in the `vault` namespace)
+2. External Secrets Operator (in the `external-secrets` namespace)
+3. Example configuration (in the `default` namespace)
 
-3. A custom helm-chart for the configuration named `vault-eso-example`
+If you prefer to install components individually:
 
-   ```sh
-   cd config/apps/vault/vault-eso-example
-   helm dependency build .
-   helm upgrade vault-eso-example --install .
-   ```
+```sh
+# Install Vault
+task vault:install
 
-### Using the provided taskfile
+# Install External Secrets Operator
+task vault:install:eso
 
-    ```sh
-    git clone code-samples
-    task vault:install
-    ```
+# Install example configuration
+task vault:demo:vault-eso:install
+```
 
-### Testing the external secret is functioning as expected
+### Testing the external secret
 
-    ```sh
-    kubectl get -n default secret test -o json | jq '.data | map_values(@base64d)'
-    ```
+To verify the external secret is functioning correctly:
 
-## What's the secret ?
+```sh
+task vault:test-result
+```
+
+## Architecture Details
 
 1. Vault is installed in the `vault` namespace hence it's url is: `http://vault.vault:8200`
 2. The token is `root` which is something you would probably do more securely in a public environment.
@@ -108,6 +103,21 @@ This setup will initialize vault with a simple password - the password is `root`
 
 ## Cleanup
 
-    ```sh
-    task vault:uninstall
-    ```
+To remove all components:
+
+```sh
+task vault:cleanup:all
+```
+
+For individual component cleanup:
+
+```sh
+# Remove Vault
+task vault:uninstall
+
+# Remove External Secrets Operator
+task vault:uninstall:eso
+
+# Remove example configuration
+task vault:demo:vault-eso:uninstall
+```

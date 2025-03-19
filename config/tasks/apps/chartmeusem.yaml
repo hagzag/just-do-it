@@ -1,0 +1,29 @@
+---
+version: '3'
+
+silent: true
+
+tasks:
+
+  tweak-chartmeusem-test:
+    desc: Tear down the chartmeusem chart
+    dir: .config/apps/
+    cmds:
+    - helm create my-chart
+    - helm package my-chart
+    - yq e '.version = "0.2.0"' my-chart/Chart.yaml > my-chart/Chart.yaml
+    - curl --data-binary "@my-chart-0.2.0.tgz" https://chartmuseum.k8s.localhost/api/charts
+    - helm repo add chartmuseum-local https://chartmuseum.k8s.localhost/
+    - helm repo update
+    - helm fetch chartmuseum-local/my-chart --untar
+
+  install-argo-app:
+    desc: Installs nginx resources manually on the local cluster
+    dir: config/apps/
+    cmds:
+    - kubectl apply -f chartmuseum.yaml
+
+  rm:
+    dir: config/apps/
+    cmds:
+    - kubectl delete -n argocd -f chartmuseum.yaml

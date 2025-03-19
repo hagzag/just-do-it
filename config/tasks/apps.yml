@@ -1,0 +1,38 @@
+---
+version: '3'
+
+includes:
+
+  # configuration and secret management
+  sealed-secrets: ./apps/sealed-secrets.yaml
+
+  reloader: ./apps/reloader.yaml
+  descheduler: ./apps/descheduler.yaml
+  reflector: ./apps/reflector.yaml
+
+  # ingress-nginx
+  ingress-nginx: ./apps/ingress-nginx.yaml
+
+  # gitops
+  argocd: ./apps/argo-cd.yaml
+
+  # applications / packages
+  # cicd-toolz: ./apps/cicd-toolz.yaml
+
+  # helm chart registry
+  chartmeusem: ./apps/chartmeusem.yaml
+
+  # whoami-demo-app via nginx
+  whoami: ./apps/whoami.yaml
+
+  # argo-workflows
+  argo-workflows: ./apps/argo-workflows.yaml
+  
+  # object storage
+  minio: ./apps/minio.yaml
+
+  # cert-manager
+  cert-manager: ./apps/cert-manager.yaml
+
+  # n8n
+  n8n: ./apps/n8n.yaml

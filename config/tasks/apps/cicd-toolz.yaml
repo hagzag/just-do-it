@@ -1,0 +1,43 @@
+---
+version: '3'
+
+vars:
+  GIT_SUBMODULE_URL: 'https://github.com/hagzag/cicd-toolz.git'
+  GIT_SUBMODULE_DIR: ./config/apps/cicd-toolz
+  GIT_SUBMODULE_REF: main
+
+tasks:
+  cleanup-submodule:
+    desc: Remove the submodule
+    dir: '{{.ROOT_DIR}}'
+    cmds:
+    - git submodule deinit -f -- '{{.GIT_SUBMODULE_DIR}}'
+    - git rm -f '{{.GIT_SUBMODULE_DIR}}'
+    - rm -rf .git/modules/'{{.GIT_SUBMODULE_DIR}}'
+    - rm -rf '{{.GIT_SUBMODULE_DIR}}'  
+    # - git add .gitmodules
+    # - git commit -m "Removed submodule"  
+
+  add-submodule:
+    dir: '{{.ROOT_DIR}}'
+    interactive: true
+    cmds:
+    - git submodule add -b '{{.GIT_SUBMODULE_REF}}' '{{.GIT_SUBMODULE_URL}}' '{{.GIT_SUBMODULE_DIR}}'
+
+  docker-build:
+    desc: Build the docker image
+    dir: '{{.ROOT_DIR}}/{{.GIT_SUBMODULE_DIR}}'
+    cmds:
+    - docker build -t cicd-toolz:latest .
+    - docker tag cicd-toolz registry.localhost:5002/cicd-toolz:latest
+    - docker push registry.localhost:5002/cicd-toolz:latest
+
+  run-pod-manifest:
+    desc: Run the pod manifest
+    cmds:
+    - kubectl run --image=registry.localhost:5002/cicd-toolz:latest cicd-toolz --image-pull-policy=Always --command -- /bin/bash -c "while true; do sleep 30; done"
+
+  cleanup-pod-manifest:
+    desc: Run the pod manifest
+    cmds:
+    - kubectl delete po cicd-toolz

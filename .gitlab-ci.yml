@@ -1,0 +1,4 @@
+include:
+  - project: 'tikalk/engineering/tools/ci-templates'
+    ref: 'super-linter'
+    file: stages/test/.super-linter.gitlab-ci.yml

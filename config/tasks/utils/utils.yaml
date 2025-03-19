@@ -1,0 +1,97 @@
+---
+version: '3'
+
+silent: true
+
+env:
+  VAULT_ADDR: "https://vault.k8s.localhost"
+  VAULT_SKIP_VERIFY: "true"
+  HOSTCTL: 1.1.4
+  # IMAGES:
+  #   sh: kubectl get pod -A -oyaml | grep image | grep -oE '[a-zA-Z0-9./:-]+/[a-zA-Z0-9./:-]+' | awk '!seen[$0]++'
+  IMAGES: |
+        registry.k8s.io/ingress-nginx/controller:v1.10.0
+        docker.io/library/redis:7.0.15-alpine
+        quay.io/argoproj/argocd:v2.10.9
+        xpkg.upbound.io/crossplane/crossplane:v1.14.5
+
+  OTHER_IMAGES: |  
+        ghcr.io/stakater/reloader:v1.0.38 
+        docker.io/rancher/klipper-lb:v0.4.4 
+        rancher/klipper-lb:v0.4.4 
+        ghcr.io/dexidp/dex:v2.37.0 
+        docker.io/rancher/mirrored-metrics-server:v0.6.3 
+        docker.io/rancher/mirrored-coredns-coredns:1.10.1
+        rancher/local-path-provisioner:v0.0.24 
+        # ghcr.io/k3d-io/k3d-tools:5.4.6
+        # docker.io/rancher/k3s:v1.27.4-k3s1
+        # docker.io/rancher/k3s:latest
+        # ghcr.io/k3d-io/k3d-proxy:5.4.6
+tasks:
+  
+  docker-pull-images:
+    cmds:
+    - for: { var: IMAGES }
+      cmd: |
+        docker pull {{.ITEM}}
+    silent: false
+
+  k3d-import-images:
+    cmds:
+    - for: { var: IMAGES }
+      cmd: |
+        k3d image import -c demo {{.ITEM}}
+    silent: false
+
+  create-vscode-config:
+    desc: creates a .vscode/settings.json
+    # internal: true
+    generates:
+    - .vscode/settings.json
+    prompt: This will override your existing .vscode ... Do you want to continue?
+    cmds:
+    - test -d .vscode || mkdir .vscode
+    - |
+      cat<<EOF>.vscode/settings.json
+      {
+        "yaml.schemas": {
+          "https://taskfile.dev/schema.json": [
+            "tasks/*.yaml",
+            "Taskfile.yml",
+          ]
+        }
+      }
+      EOF
+  
+  images-list:
+    cmds:
+    - kubectl get pods --all-namespaces -o jsonpath="{..image}" | tr -s '[[:space:]]' '\n' | sort | uniq > images.txt
+    - |
+      IMAGES=$(cat images.txt)
+      echo $IMAGES
+      for image in $IMAGES; do
+        echo "Pulling image: $image"
+        docker pull $image
+
+        new_image="registry.localhost:5002/$(basename $image)"
+        echo "Tagging image: $image as $new_image"
+        docker tag $image $new_image
+
+        echo "Pushing image: $new_image"
+        docker push $new_image
+      done
+
+  super-linter:
+    cmds:
+      - |
+        docker run --rm \
+          -v $(pwd):/ws \
+          -e DISABLE_ERRORS=true \
+          -e RUN_LOCAL=true \
+          -e DEFAULT_WORKSPACE=/ws \
+          -e ANSIBLE_DIRECTORY=/workspace \
+          -e LINTER_RULES_PATH=/workspace/.github/linters \
+          -e CREATE_LOG_FILE=true \
+          -e LOG_FILE=super-linter.log \
+          github/super-linter:v5.0.0 \
+          sh -c 'echo "Running super-linter"; /action/lib/linter.sh'

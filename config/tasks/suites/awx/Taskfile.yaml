@@ -1,6 +1,10 @@
+---
 version: '3'
 
 silent: true
+
+vars:
+  AWX_NAMESPACE: awx
 
 tasks:
 

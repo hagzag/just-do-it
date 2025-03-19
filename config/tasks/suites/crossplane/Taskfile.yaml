@@ -1,0 +1,300 @@
+---
+version: '3'
+
+silent: true
+
+includes:
+  helm: ../../utils/helm.yaml
+
+vars:
+  cp_controller_name: &cpname crossplane
+  cp_controller_namespace: crossplane-system
+  cp_controller_repo: https://charts.crossplane.io/stable
+  cp_controller_chart_version: 1.18.2
+
+tasks:
+
+  install-dev:
+    cmds:
+      - task: set-argocd-context
+      - task: dryrun
+      - task: apply
+
+  install:
+    cmds:
+      - task: dryrun
+      - task: apply
+
+  _uninstall:
+    cmds:
+      - task: uninstall
+
+  create-wrapper-chart:
+    dir: '{{.ROOT_DIR}}/config/apps/'
+    cmds:
+      - task: helm:create-wrapper-chart
+        vars:
+          APP_WRAPPER_NAME: '{{.cp_controller_name}}'
+          APP_NAME: '{{.cp_controller_name}}'
+          APP_REPO: '{{.cp_controller_repo}}'
+          APP_VERSION: '{{.cp_controller_chart_version}}'
+
+  create-values:
+    dir: '{{.ROOT_DIR}}/config/apps/{{.cp_controller_name}}'
+    cmds:
+      - |
+        test -f values.yaml && mv values.yaml values.yaml.bak || true
+        cat<<EOF > values.yaml
+        {{.cp_controller_name}}: {}
+        EOF
+  
+  dryrun:
+    vars: &cpvars
+      CHART: '{{.cp_controller_name}}'
+      NAMESPACE: '{{.cp_controller_namespace}}'
+      REPO_URL: '{{.cp_controller_repo}}'
+      VERSION: '{{.cp_controller_chart_version}}'
+      CHART_FOLDER: './config/apps/{{.cp_controller_name}}'
+      VALUES_FILES: './config/apps/{{.cp_controller_name}}/values.yaml'
+    cmds:
+      - task: helm:dependency_build
+        vars: *cpvars
+      - task: helm:template
+        vars: *cpvars
+      - task: helm:template_apply_dry_run
+        vars: *cpvars
+  
+  apply:
+    cmds:
+      - task: helm:dependency_build 
+        vars: *cpvars
+      - task: helm:install
+        vars: *cpvars
+  
+  uninstall:
+    cmds:
+      - task: helm:_uninstall
+        vars: *cpvars
+
+  full-run:
+    cmds:
+      - task: create-wrapper-chart
+      - task: create-values
+      - task: dryrun
+      - task: apply
+      - task: aws:all
+      - task: gcp:all
+
+  resource-cleanup:
+    cmds:
+      - task: aws:resource-cleanup
+      - task: gcp:resource-cleanup
+      - task: uninstall
+
+  # AWS
+  aws:all:
+    cmds:
+      - task: aws:create-cloud-credentials-from-envvars
+      - task: aws:create-credentials-secret
+      - task: aws:providerconfig-provider-aws-s3
+      - task: aws:create-resource-aws-s3
+  
+  aws:create-cloud-credentials-from-envvars:
+    desc: "Create AWS Credentials from Environment Variables"
+    silent: true
+    requires:
+      vars:
+        - AWS_ACCESS_KEY_ID
+        - AWS_SECRET_ACCESS_KEY
+        - AWS_SESSION_TOKEN
+    cmds:
+      - |
+        # echo "Creating AWS Credentials from Environment Variables"
+        # echo "AWS_ACCESS_KEY_ID: {{.AWS_ACCESS_KEY_ID}}"
+        # echo "AWS_SECRET_ACCESS_KEY: {{.AWS_SECRET_ACCESS_KEY}}"
+        # echo "AWS_SESSION_TOKEN: {{.AWS_SESSION_TOKEN}}"  
+        cat <<EOF > ./aws-credentials.ini
+        [default]
+        aws_access_key_id = {{.AWS_ACCESS_KEY_ID}}
+        aws_secret_access_key = {{.AWS_SECRET_ACCESS_KEY}}
+        aws_session_token = {{.AWS_SESSION_TOKEN}}
+        EOF
+
+  aws:create-credentials-secret:
+    silent: true
+    desc: "Import AWS Credentials as Kubernetes Secret"
+    cmds:
+      - |
+        kubectl -n {{.cp_controller_namespace}} delete secret aws-secret || true
+        kubectl -n {{.cp_controller_namespace}} create secret generic aws-secret --from-file=creds=./aws-credentials.ini
+  
+  aws:providerconfig-provider-aws-s3:
+    cmds:
+      - kubectl -n {{.cp_controller_namespace}} wait --for condition=established --timeout=60s crd/providers.pkg.crossplane.io --timeout=90s
+      - |
+        cat <<EOF | kubectl apply -n {{.cp_controller_namespace}} -f -
+        apiVersion: pkg.crossplane.io/v1
+        kind: Provider
+        metadata:
+          name: provider-aws-s3
+        spec:
+          package: xpkg.upbound.io/upbound/provider-aws-s3:v1.17.0
+        EOF
+      - |
+        # wait for the provider-aws-s3 to be ready
+        kubectl wait --for=condition=Healthy=True providers.pkg.crossplane.io/provider-aws-s3 --timeout=120s
+      - |
+        cat <<EOF | kubectl apply -n {{.cp_controller_namespace}} -f -
+        apiVersion: aws.upbound.io/v1beta1
+        kind: ProviderConfig
+        metadata:
+          name: default
+        spec:
+          credentials:
+            source: Secret
+            secretRef:
+              namespace: crossplane-system
+              name: aws-secret
+              key: creds
+        EOF
+
+  aws:create-resource-aws-s3:
+    cmds:
+      - |
+        cat <<EOF | kubectl -n {{.cp_controller_namespace}} create -f -
+        apiVersion: s3.aws.upbound.io/v1beta1
+        kind: Bucket
+        metadata:
+          generateName: crossplane-bucket-
+        spec:
+          forProvider:
+            region: {{.AWS_REGION}}
+          providerConfigRef:
+            name: default
+        EOF
+  
+  aws:resource-cleanup:
+    silent: false
+    cmds:
+      - |
+        # Get the actual bucket name from managed resources
+        BUCKET_NAME=$(kubectl get managed -ojson | jq -r '.items[] | select(.kind=="Bucket") | .metadata.name')
+        if [ ! -z "$BUCKET_NAME" ]; then
+          kubectl delete bucket $BUCKET_NAME
+        fi
+      - |
+        # delete only if it exists:
+        PROVIDERCONFIG_NAME=$(kubectl get providerconfig.aws.upbound.io -ojson | jq -r '.items[] | select(.metadata.name=="default") | .metadata.name')
+        if [ ! -z "$PROVIDERCONFIG_NAME" ]; then
+          kubectl -n {{.cp_controller_namespace}} delete providerconfig.aws.upbound.io $PROVIDERCONFIG_NAME
+        fi
+      - |
+        # delete only if it exists:
+        provider_name=$(kubectl get providers.pkg.crossplane.io -ojson | jq -r '.items[] | select(.metadata.name=="provider-aws-s3") | .metadata.name')
+        if [ ! -z "$provider_name" ]; then
+          kubectl delete providers.pkg.crossplane.io $provider_name
+        fi
+      - |
+        # delete only if it exists:
+        SECRET_NAME=$(kubectl get secret -n {{.cp_controller_namespace}} -ojson | jq -r '.items[] | select(.metadata.name=="aws-secret") | .metadata.name')
+        if [ ! -z "$SECRET_NAME" ]; then
+          kubectl -n {{.cp_controller_namespace}} delete secret $SECRET_NAME
+        fi
+
+  # GCP
+
+  gcp:all:
+    cmds:
+      - task: gcp:validate-credfile
+      - task: gcp:create-credentials-secret
+      - task: gcp:providerconfig-provider-gcp-storage
+      - task: gcp:create-resource-gcp-storage
+
+  gcp:validate-credfile:
+    cmds:
+      - test -f {{.ROOT_DIR}}/gcp-credentials.json
+
+  gcp:create-credentials-secret:
+    cmds:
+      - |
+        # delete only if it exists:
+        SECRET_NAME=$(kubectl get secret -n {{.cp_controller_namespace}} -ojson | jq -r '.items[] | select(.metadata.name=="gcp-secret") | .metadata.name')
+        if [ ! -z "$SECRET_NAME" ]; then
+          kubectl -n {{.cp_controller_namespace}} delete secret $SECRET_NAME
+        fi
+      - kubectl -n {{.cp_controller_namespace}} create secret generic gcp-secret --from-file=creds=./gcp-credentials.json
+
+  gcp:providerconfig-provider-gcp-storage:
+    requires:
+      vars:
+        - GCP_PROJECT_ID
+    cmds:
+      - kubectl -n {{.cp_controller_namespace}} wait --for condition=established --timeout=60s crd/providers.pkg.crossplane.io --timeout=90s
+      - |
+        cat <<EOF | kubectl apply -f -
+        apiVersion: pkg.crossplane.io/v1
+        kind: Provider
+        metadata:
+          name: provider-gcp-storage
+        spec:
+          package: xpkg.upbound.io/upbound/provider-gcp-storage:v1.9.0
+        EOF
+      - kubectl wait --for=condition=Healthy=True providers.pkg.crossplane.io/provider-gcp-storage --timeout=120s
+      - |
+        cat <<EOF | kubectl apply -f -
+        apiVersion: gcp.upbound.io/v1beta1
+        kind: ProviderConfig
+        metadata:
+          name: default
+        spec:
+          projectID: {{.GCP_PROJECT_ID}}
+          credentials:
+            source: Secret
+            secretRef:
+              namespace: crossplane-system
+              name: gcp-secret
+              key: creds
+        EOF
+
+  gcp:create-resource-gcp-storage:
+    cmds:
+      - |
+        cat <<EOF | kubectl create -f -
+        apiVersion: storage.gcp.upbound.io/v1beta1
+        kind: Bucket
+        metadata:
+          generateName: crossplane-bucket-
+        spec:
+          forProvider:
+            location: {{.GCP_REGION}}
+          providerConfigRef:
+            name: default
+        EOF
+
+  gcp:resource-cleanup:
+    cmds:
+      - echo "Cleaning up GCP Resources"
+      - |
+        # Get the actual bucket name from managed resources
+        BUCKET_NAME=$(kubectl get managed -ojson | jq -r '.items[] | select(.kind=="Bucket" and .apiVersion=="storage.gcp.upbound.io/v1beta2") | .metadata.name')
+        if [ ! -z "$BUCKET_NAME" ]; then
+          kubectl delete buckets.storage.gcp.upbound.io $BUCKET_NAME
+        fi
+      - |
+        # delete only if it exists:
+        PROVIDERCONFIG_NAME=$(kubectl get providerconfig.gcp.upbound.io -ojson | jq -r '.items[] | select(.metadata.name=="default") | .metadata.name')
+        if [ ! -z "$PROVIDERCONFIG_NAME" ]; then
+          kubectl -n {{.cp_controller_namespace}} delete providerconfig.gcp.upbound.io $PROVIDERCONFIG_NAME
+        fi
+      - |
+        # delete only if it exists:
+        PROVIDER_NAME=$(kubectl get providers.pkg.crossplane.io -ojson | jq -r '.items[] | select(.metadata.name | startswith("provider-gcp-storage")) | .metadata.name')
+        if [ ! -z "$PROVIDER_NAME" ]; then
+          kubectl delete providers.pkg.crossplane.io $PROVIDER_NAME
+        fi
+      - |
+        # delete only if it exists:
+        SECRET_NAME=$(kubectl get secret -n {{.cp_controller_namespace}} -ojson | jq -r '.items[] | select(.metadata.name=="gcp-secret") | .metadata.name')
+        if [ ! -z "$SECRET_NAME" ]; then
+          kubectl -n {{.cp_controller_namespace}} delete secret $SECRET_NAME
+        fi

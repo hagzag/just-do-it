@@ -1,0 +1,18 @@
+---
+version: '3'
+
+vars:
+  DEFAULT_BRANCH: main
+  DEFAULT_REMOTE: origin
+
+tasks:
+
+  commit:am:
+    interactive: true
+    desc: Run the workflow
+    prompt: "you sure?"
+    requires:
+      vars:
+        - COMMIT_MSG
+    cmds:
+    - git commit -am "$COMMIT_MSG"

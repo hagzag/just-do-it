@@ -1,0 +1,163 @@
+---
+version: '3'
+
+silent: true
+
+includes:
+  helm: ../utils/helm.yaml
+
+vars:
+  cm_controller_name: &cmname cert-manager
+  cm_controller_namespace: *cmname
+  cm_controller_repo: https://charts.jetstack.io
+  cm_controller_chart_version: v1.16.3
+  cm_local_registry: 'registry.localhost:5002'
+tasks:
+
+
+  deploy-dev-via-argocd:
+    cmds:
+      - task: set-argocd-context
+      - task: install-argocd-app
+
+  install-dev-via-helm:
+    cmds:
+      - task: create-wrapper-chart
+      - task: create-values
+      - task: create-local-root-ca
+      - task: dryrun
+      - task: apply
+
+  install:
+    cmds:
+      - task: dryrun
+      - task: apply
+
+
+  # helm 
+  
+  create-wrapper-chart:
+    dir: '{{.ROOT_DIR}}/config/apps/'
+    cmds:
+      - task: helm:create-wrapper-chart
+        vars:
+          APP_WRAPPER_NAME: '{{.cm_controller_name}}'
+          APP_NAME: '{{.cm_controller_name}}'
+          APP_REPO: '{{.cm_controller_repo}}'
+          APP_VERSION: '{{.cm_controller_chart_version}}'
+
+  create-values:
+    dir: '{{.ROOT_DIR}}/config/apps/{{.cm_controller_name}}'
+    cmds:
+      - |
+        # this are dev-values.yaml
+        test -f values.yaml && mv values.yaml values.yaml.bak || true
+        cat<<EOF > values.yaml
+        {{.cm_controller_name}}:
+          installCRDs: true
+          prometheus:
+            enabled: false
+          extraArgs:
+            - --cluster-resource-namespace={{.cm_controller_namespace}}
+        EOF
+
+  _cleanup-local-ca:
+    dir: '{{.ROOT_DIR}}/config/apps/{{.cm_controller_name}}/ca'
+    cmds:
+      - kubectl delete secret local-rootca
+      - rm -f tls.crt
+      - rm -f tls.key
+
+  create-local-ca:
+    desc: Creates and uploads local certificates to the cluster as tls secrets
+    dir: '{{.ROOT_DIR}}/config/apps/{{.cm_controller_name}}/ca'
+    generates:
+      - '{{.ROOT_DIR}}/config/apps/{{.cm_controller_name}}/ca/tls.crt'
+      - '{{.ROOT_DIR}}/config/apps/{{.cm_controller_name}}/ca/tls.key'
+    cmds:
+      - |
+        if [ ! -f '{{.ROOT_DIR}}/config/apps/{{.cm_controller_name}}/ca/tls.crt' ] || [ ! -f '{{.ROOT_DIR}}/config/apps/{{.cm_controller_name}}/ca/tls.key' ]; then
+          echo "Generating new self-signed root certificate"
+          openssl req -new -newkey rsa:4096 -days 3650 -nodes -x509 \
+          -subj "/C=IL/ST=Israel/L=Tel Aviv/CN=LocalDeveloperRootCA" \
+          -keyout '{{.ROOT_DIR}}/config/apps/{{.cm_controller_name}}/ca/tls.key' -out '{{.ROOT_DIR}}/config/apps/{{.cm_controller_name}}/ca/tls.crt'
+        fi
+      - kubectl apply -k '{{.ROOT_DIR}}/config/apps/{{.cm_controller_name}}/ca/'
+      
+
+
+  create-local-root-ca:
+    dir: '{{.ROOT_DIR}}/config/apps/{{.cm_controller_name}}/teamplates'
+    cmds:
+      - |
+        cat <<EOF > root-ca.yaml
+        apiVersion: cert-manager.io/v1
+        kind: ClusterIssuer
+        metadata:
+          name: local-ca
+          namespace: cert-manager
+        spec:
+          ca:
+            secretName: tls-secret
+            crlDistributionPoints: []
+        EOF
+
+  dryrun:
+    vars: &cmvars
+      CHART: '{{.cm_controller_name}}'
+      NAMESPACE: '{{.cm_controller_namespace}}'
+      REPO_URL: '{{.cm_controller_repo}}'
+      VERSION: '{{.cm_controller_chart_version}}'
+      CHART_FOLDER: './config/apps/{{.cm_controller_name}}'
+      VALUES_FILES: './config/apps/{{.cm_controller_name}}/values.yaml'
+    cmds:
+      - task: helm:repo_add
+        vars: *cmvars
+      - task: helm:dependency_build
+        vars: *cmvars
+      - task: helm:template
+        vars: *cmvars
+      - task: helm:template_apply_dry_run
+        vars: *cmvars
+  
+  apply:
+    cmds:
+      - task: helm:dependency_build 
+        vars: *cmvars
+      - task: helm:install
+        vars: *cmvars
+  
+  full-run:
+    cmds:
+      - task: create-wrapper-chart
+      - task: create-values
+      - task: dryrun
+      - task: apply
+
+  set-ns-context:
+    cmds:
+    - kubectl config set-context --current --namespace {{.cm_controller_namespace}} --cluster=k3d-{{.CLUSTER_NAME}}
+  
+
+  # with argocd
+
+  install-argocd-app:
+    desc: Installs nginx as argocCD application
+    dir: config/apps/
+    cmds:
+    - task: set-argocd-context
+    - kubectl apply -f {{.cm_controller_name}}.yaml
+  
+  delete-argocd-app:
+    dir: config/apps/
+    cmds:
+    - task: set-argocd-context
+    - kubectl delete -f ingress-nginx.yaml
+    ignore_error: true
+  
+  set-argocd-context:
+    internal: true
+    cmds:
+    - kubectl config set-context --current --namespace=argocd --cluster=k3d-{{.CLUSTER_NAME}}
+  
+  

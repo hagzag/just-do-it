@@ -1,3 +1,4 @@
+---
 version: '3'
 
 # silent: true
@@ -7,73 +8,30 @@ dotenv:
 
 includes:
 
-  # tests
-  test: ./config/tasks/test.yaml
+  # utils
+  utils: 
+    taskfile: ./config/tasks/utils.yaml
 
-  # common tools for this repo
-  tools: ./config/tasks/tools.yaml
-
-  # utility tasks
-  helm: ./config/tasks/helm.yaml
-  templates: ./config/tasks/templates.yaml
-  utils: ./config/tasks/utils.yaml
-  
-  # one-off tasks
-  ingress-nginx: ./config/tasks/ingress-nginx.yaml
-  
   # suites
-  suites: 
-    taskfile: ./config/tasks/suites.yml
+  app: 
+    taskfile: ./config/tasks/apps.yml
     
-  coredns: ./config/tasks/suites/coredns/Taskfile.yaml
-  pre-commit: ./config/tasks/suites/pre-commit/Taskfile.yaml
-  
-  
-  reloader: ./config/tasks/reloader.yaml
-  descheduler: ./config/tasks/descheduler.yaml
-  reflector: ./config/tasks/reflector.yaml
-
-  vault: ./config/tasks/suites/vault-eso/Taskfile.yaml
-  sealed-secrets: ./config/tasks/sealed-secrets.yaml
-
-  awx: ./config/tasks/suites/awx/Taskfile.yaml
-  # applications / packages
-  cicd-toolz: ./config/tasks/cicd-toolz.yaml
-  # helm chart registry
-  chartmeusem: ./config/tasks/chartmeusem.yaml
-  
-  # scaling
-  goldilocks: ./config/tasks/suites/goldilocks/Taskfile.yaml
-
-  # policy
-  gatekeeper: ./config/tasks/suites/gatekeeper/Taskfile.yaml
-  gatekeeper-pm: ./config/tasks/suites/gatekeeper-policy-manager/Taskfile.yaml
-
-  # observability
-  monitoring-n-logging: ./config/tasks/monitoring-n-logging.yaml
-
-  # whoami-demo-app via nginx
-  whoami: ./config/tasks/whoami.yaml
-  
-  # argo-workflows
-  argocd: ./config/tasks/argo-cd.yaml
-  argo-workflows: ./config/tasks/argo-workflows.yaml
-  minio: ./config/tasks/minio.yaml
+  # suites
+  suite: 
+    taskfile: ./config/tasks/suites.yml
 
 tasks:
-
 
   # debug
   default:
     desc: Debug the environment
     cmds:
-    - env 
+    - task: help
 
   run-tests:
     desc: Run tests
     cmds:
       - task: test:helm-wrapper
-
   
   help:
     desc: Show help
@@ -84,10 +42,10 @@ tasks:
   k3d:cluster:create:
     desc: Start the k3d cluster
     cmds:
-    - task: suites:k3d:cluster-template
-    - task: suites:k3d:cluster-create
-    - task: suites:k3d:dns
-    - task: suites:k3d:certs
+    - task: suite:k3d:cluster-template
+    - task: suite:k3d:cluster-create
+    - task: suite:k3d:dns
+    - task: suite:k3d:certs
 
   k3d:cluster:delete:
     desc: Destroy the k3d cluster
@@ -104,7 +62,7 @@ tasks:
         - DEMO_EKS_REGION
         - DEMO_EKS_CLUSTER_NAME
     cmds:
-    - task: suites:production-rediness-external-dns:default
+    - task: suite:production-rediness-external-dns:default
       vars:
         KUBECTL_CONTEXT: "arn:aws:eks:{{.DEMO_EKS_REGION}}:{{.DEMO_EKS_ACCOUNT_ID}}:cluster/{{.DEMO_EKS_CLUSTER_NAME}}"
   
@@ -112,7 +70,7 @@ tasks:
     desc: Cleanup the external-dns project
     requires: *exdns_req
     cmds:
-    - task: suites:production-rediness-external-dns:cleanup
+    - task: suite:production-rediness-external-dns:cleanup
       vars:
         KUBECTL_CONTEXT: "arn:aws:eks:{{.DEMO_EKS_REGION}}:{{.DEMO_EKS_ACCOUNT_ID}}:cluster/{{.DEMO_EKS_CLUSTER_NAME}}"
 
@@ -121,53 +79,53 @@ tasks:
   coredns:
     desc: Run the codedns project
     cmds:
-    - task: coredns:dns-test
+    - task: suite:coredns:dns-test
 
   # argocd - quick start for demo's
 
   argocd:
     desc: Deploy argocd project
     cmds:
-    - task: argocd:install
-    - task: argocd:secret
-    - task: argocd:repo
+    - task: app:argocd:install
+    - task: app:argocd:secret
+    - task: app:argocd:repo
 
   # ingress-nginx
   
   ingress-nginx:
     desc: Deploy nginx project
     cmds:
-    - task: ingress-nginx:install
+    - task: app:ingress-nginx:install
 
   # config-managment addons
 
   config-managment:
     desc: Run all config-managment tasks
     cmds:
-    - task: reloader:install
-    - task: reflector:install
-    - task: descheduler:install
+    - task: app:reloader:install
+    - task: app:reflector:install
+    - task: app:descheduler:install
   
 
   # secrets management | sealed-secrets 
   sealed-secrets:
     desc: Run all sealed-secrets tasks
     cmds:
-    - task: cluster-create
-    - task: sealed-secrets:install-kubeseal
-    - task: sealed-secrets:create-private-key
+    - task: k3d:cluster:create
+    - task: app:sealed-secrets:install-kubeseal
+    - task: app:sealed-secrets:create-private-key
     - kubectl apply -k .config/sealed-secrets
-    - task: sealed-secrets:local-apply
+    - task: app:sealed-secrets:local-apply
 
   # policy enforcement | goldilocks
   goldilocks-minimal:
     desc: Run the goldilocks project
     cmds:
-    - task: cluster-create
-    - task: ingress-nginx:install
-    - task: reflector:install
-    - task: reloader:install
-    - task: goldilocks:install
+    - task: k3d:cluster:create
+    - task: app:ingress-nginx:install
+    - task: app:reflector:install
+    - task: app:reloader:install
+    - task: suite:goldilocks:install
     # - open https://goldilocks.k8s.localhost
 
   # policy enforcement | gatekeeper
@@ -175,35 +133,56 @@ tasks:
     desc: Run the opa-gatekeeper project
     cmds:
     - task: goldilocks-minimal
-    - task: gatekeeper:full-run
-    - task: gatekeeper-pm:full-run
+    - task: suite:gatekeeper:full-run
+    - task: suite:gatekeeper-pm:full-run
     # - open https://gpm.k8s.localhost
   
-
   # policy enforcement | gatekeeper
   opa-gatekeeper-demo:
     desc: Run the opa-gatekeeper project
     cmds:
-    - task: gatekeeper:create-constraint-teample
-    - task: gatekeeper:create-constraint
-    - task: gatekeeper:test-constraint-expect-failure
-    - task: gatekeeper:test-constraint-expect-success
+    - task: suite:gatekeeper:create-constraint-teample
+    - task: suite:gatekeeper:create-constraint
+    - task: suite:gatekeeper:test-constraint-expect-failure
+    - task: suite:gatekeeper:test-constraint-expect-success
   
   opa-gatekeeper-demo-cleanup:
     desc: Cleanup the opa-gatekeeper project
     cmds:
-    - task: gatekeeper:delete-constraint
-    - task: gatekeeper:delete-constraint-template
+    - task: suite:gatekeeper:delete-constraint
+    - task: suite:gatekeeper:delete-constraint-template
 
   # piplines | argo-workflows
   argo-workflows:
     desc: Run the argo-workflows project
     cmds:
     - task: config-managment
-    - task: ingress-nginx
-    - task: minio:full-run
+    - task: app:ingress-nginx:install
+    - task: app:minio:full-run
     # - task: argo-wokrflows:full-run
     # - task: argo-wokrflows:secret
     # - task: argo-wokrflows:run-workflow  
+  
+  chartmeusem:
+    desc: Run the chartmeusem project
+    cmds:
+    - task: app:chartmeusem:install-argo-app
+  
+  chartmeusem:cleanup:
+    desc: Run the chartmeusem project
+    cmds:
+    - task: app:chartmeusem:rm
 
+  actions-runner-controller:
+    desc: Run the actions-runner-controller project
+    cmds:
+    - task: k3d:cluster:create
+    - task: app:reflector:install
+    - task: ingress-nginx
+    - task: app:cert-manager:install-dev-via-helm
+    - task: suite:actions-runner-controller:install-dev
 
+  prometheus-monitoring:
+    desc: Run the monitoring project
+    cmds:
+    - task: suite:kube-prometheus-stack:full-run

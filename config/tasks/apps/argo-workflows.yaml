@@ -1,0 +1,156 @@
+---
+version: '3'
+
+silent: true
+
+includes:
+  helm: ../utils/helm.yaml
+
+vars:
+  aw_controller_name: &awname argo-workflows
+  aw_controller_namespace: argo
+  aw_controller_repo: https://argoproj.github.io/argo-helm
+  aw_controller_chart_version: 0.20.1
+  aw_local_registry: 'registry.localhost:5002'
+tasks:
+
+  install-dev:
+    cmds:
+      - task: set-ns-context
+      - task: dryrun
+      - task: apply
+      - task: set-argocd-context
+      # - task: install-argocd-app
+
+  install:
+    cmds:
+      - task: dryrun
+      - task: apply
+
+
+  # helm 
+  
+  create-wrapper-chart:
+    dir: '{{.ROOT_DIR}}/config/apps/'
+    cmds:
+      - task: helm:create-wrapper-chart
+        vars:
+          APP_WRAPPER_NAME: '{{.aw_controller_name}}'
+          APP_NAME: '{{.aw_controller_name}}'
+          APP_REPO: '{{.aw_controller_repo}}'
+          APP_VERSION: '{{.aw_controller_chart_version}}'
+
+  create-values:
+    dir: '{{.ROOT_DIR}}/config/apps/{{.aw_controller_name}}'
+    cmds:
+      - |
+        # this are dev-values.yaml
+        test -f values.yaml && mv values.yaml values.yaml.bak || true
+        cat<<EOF > values.yaml
+        {{.aw_controller_name}}:
+          nameOverride: argo
+          executor:
+            resources:
+              requests:
+                cpu: 200m
+                memory: 256Mi
+              limits:
+                cpu: 1
+                memory: 1024Mi
+          server:
+            secure: false
+            extraArgs:
+            - --auth-mode=client
+            - --auth-mode=server
+            ingress:
+              ingressClassName: nginx
+              enabled: true
+              hosts:
+                - argo.k8s.localhost
+              paths: 
+                - /
+              pathType: Prefix
+              tls:
+                - secretName: tls-secret
+                  hosts:
+                    - argo.k8s.localhost
+          useDefaultArtifactRepo: true
+          useStaticCredentials: true
+          artifactRepository:
+            archiveLogs: false
+            s3:
+              accessKeySecret:
+                name: minio-creds
+                key: accesskey
+              secretKeySecret:
+                name: minio-creds
+                key: secretkey
+              insecure: true
+              bucket: argo-artifacts
+              endpoint: minio.minio.svc.cluster.local:9000
+              region: us-k3d-1
+              useSDKCreds: false
+              encryptionOptions:
+                enableEncryption: false
+        EOF
+  
+  dryrun:
+    vars: &awvars
+      CHART: '{{.aw_controller_name}}'
+      NAMESPACE: '{{.aw_controller_namespace}}'
+      REPO_URL: '{{.aw_controller_repo}}'
+      VERSION: '{{.aw_controller_chart_version}}'
+      CHART_FOLDER: './config/apps/{{.aw_controller_name}}'
+      VALUES_FILES: './config/apps/{{.aw_controller_name}}/values.yaml'
+    cmds:
+      - task: helm:repo_add
+        vars: *awvars
+      - task: helm:dependency_build
+        vars: *awvars
+      - task: helm:template
+        vars: *awvars
+      - task: helm:template_apply_dry_run
+        vars: *awvars
+  
+  apply:
+    cmds:
+      - task: helm:dependency_build 
+        vars: *awvars
+      - task: helm:install
+        vars: *awvars
+  
+  full-run:
+    cmds:
+      - task: create-wrapper-chart
+      - task: create-values
+      - task: dryrun
+      - task: apply
+
+  set-ns-context:
+    internal: true
+    cmds:
+    - kubectl config set-context --current --namespace {{.aw_controller_namespace}} --cluster=k3d-{{.CLUSTER_NAME}}
+  
+
+  # with argocd
+
+  install-argocd-app:
+    desc: Installs nginx as argocCD application
+    dir: config/apps/
+    cmds:
+    - task: set-argocd-context
+    - kubectl apply -f {{.aw_controller_name}}.yaml
+  
+  delete-argocd-app:
+    dir: config/apps/
+    cmds:
+    - task: set-argocd-context
+    - kubectl delete -f ingress-nginx.yaml
+    ignore_error: true
+  
+  set-argocd-context:
+    internal: true
+    cmds:
+    - kubectl config set-context --current --namespace=argocd --cluster=k3d-{{.CLUSTER_NAME}}
+  
+  

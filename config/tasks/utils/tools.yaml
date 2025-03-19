@@ -1,0 +1,196 @@
+---
+version: '3'
+
+silent: true
+env:
+  VAULT_ADDR: "https://vault.k8s.localhost"
+  VAULT_SKIP_VERIFY: "true"
+  HOSTCTL: 1.1.4
+
+tasks:
+
+  install:
+    cmds:
+    - task: mkcert
+    - task: kustomize
+    - task: k3d
+    - task: kubectl
+    - task: jq
+    - task: vault
+    - task: hostctl
+
+  set:k8s:
+    cmds:
+    - task: kustomize
+    - task: k3d
+    - task: kubectl
+    - task: vault
+
+  set:nodejs:
+    cmds:
+    - task: asdf
+    - task: asdf:nodejs
+    - task: asdf:nodejs:latest
+
+  set:python:
+    cmds:
+    - task: python3.11
+    - task: python3.12
+    - task: python3.13
+
+  set:system:
+    cmds:
+    - task: mkcert
+    - task: jq
+    - task: hostctl
+
+  set:aws:
+    cmds:
+    - task: aws-cli
+    - task: aws-vault
+
+  set:gcp:
+    cmds:
+    - task: google-cloud-sdk
+
+  mkcert:
+    cmds:
+    - |
+      echo -e "Installing mkcert" && \
+      {{if eq OS "windows"}}choco install mkcert{{end}} \
+      {{if eq OS "darwin"}}brew install mkcert && brew install nss{{end}} \
+      {{if eq OS "linux"}}brew install mkcert{{end}}
+    ignore_error: true
+
+  kustomize:
+    cmds:
+    - |
+      echo -e "Installing kustomize" && \
+      {{if eq OS "windows"}}choco install kustomize \
+      {{else}}brew install kustomize{{end}}
+
+  k3d:
+    cmds:
+    - |
+      echo -e "Installing k3d" && \
+      {{if eq OS "windows"}}choco install k3d \
+      {{else}}brew install k3d{{end}}
+
+  kubectl:
+    cmds:
+    - |
+      echo -e "Installing kubectl" && \
+      {{if eq OS "windows"}}choco install kubernetes-cli \
+      {{else}}brew install kubernetes-cli{{end}}
+
+  jq:
+    cmds:
+    - |
+      echo -e "Installing jq" && \
+      {{if eq OS "windows"}}choco install jq\
+      {{else}}brew install jq{{end}}
+
+  hostctl:
+    cmds:
+    - |
+      echo -e "Installing hostctl"
+      {{if eq OS "windows"}}choco install wget && \
+      cd utilities && \
+      wget https://github.com/guumaster/hostctl/releases/download/v$HOSTCTL/hostctl_${HOSTCTL}_windows_64-bit.zip && \
+      unzip hostctl_${HOSTCTL}_windows_64-bit.zip && \
+      rm hostctl_${HOSTCTL}_windows_64-bit.zip LICENSE README.md{{end}}
+      {{if eq OS "darwin"}}
+      brew install guumaster/tap/hostctl{{end}}
+      {{if eq OS "linux"}}
+      curl -LO https://github.com/guumaster/hostctl/releases/download/v$HOSTCTL/hostctl_${HOSTCTL}_linux_64-bit.tar.gz && \
+      tar -xvf hostctl_${HOSTCTL}_linux_64-bit.tar.gz && \
+      rm hostctl_${HOSTCTL}_linux_64-bit.tar.gz LICENSE README.md && \
+      sudo mv hostctl /usr/local/bin{{end}}
+
+  # vault
+
+  vault:
+    cmds:
+    - |
+      echo -e "Installing Vault CLI" && \
+      {{if eq OS "windows"}}choco install vault \
+      {{else}}brew tap hashicorp/tap && brew install hashicorp/tap/vault{{end}}
+
+  # google-cloud-sdk
+
+  google-cloud-sdk:
+    cmds:
+    - |
+      echo -e "Installing Google Cloud SDK" && \
+      {{if eq OS "windows"}}choco install gcloudsdk \
+      {{else}}brew install google-cloud-sdk{{end}}
+
+  # aws
+
+  aws-cli:
+    cmds:
+    - |
+      echo -e "Installing AWS CLI" && \
+      {{if eq OS "windows"}}choco install awscli \
+      {{else}}brew install awscli{{end}}
+
+  aws-vault:
+    cmds:
+    - |
+      echo -e "Installing AWS Vault" && \
+      {{if eq OS "windows"}}choco install aws-vault \
+      {{else}}brew install aws-vault --formula{{end}}
+
+
+  # asdf
+
+  asdf:
+    platforms:
+    - darwin
+    cmds:
+    - |
+      echo -e "Installing asdf" && \
+      brew install asdf
+
+  asdf:nodejs:
+    platforms:
+    - darwin
+    cmds:
+    - |
+      echo -e "Installing asdf nodejs" && \
+      asdf plugin add nodejs https://github.com/asdf-vm/asdf-nodejs.git
+
+  asdf:nodejs:latest:
+    platforms:
+    - darwin
+    cmds:
+    - |
+      echo -e "Installing asdf nodejs latest" && \
+      asdf install nodejs latest && \
+      asdf global nodejs latest
+  
+  # python versions
+
+  python3.11:
+    platforms:
+    - darwin
+    cmds:
+    - |
+      echo -e "Installing python3.11" && \
+      brew install python@3.11
+
+  python3.12:
+    platforms:
+    - darwin
+    cmds:
+    - |
+      echo -e "Installing python3.12" && \
+      brew install python@3.12
+
+  python3.13:
+    platforms:
+    - darwin
+    cmds:
+    - |
+      echo -e "Installing python3.13" && \
+      brew install python@3.13

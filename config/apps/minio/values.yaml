@@ -2,6 +2,7 @@ minio:
   environment:
     MINIO_BROWSER_REDIRECT_URL: https://minio-console.k8s.localhost
   ingress:
+    
     enabled: true
     ingressClassName: nginx
     path: /
