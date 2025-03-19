@@ -33,3 +33,6 @@ includes:
 
   # cert-manager
   cert-manager: ./apps/cert-manager.yaml
+
+  # n8n
+  n8n: ./apps/n8n.yaml
