@@ -1,17 +1,18 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: kube-prometheus-stack
+  name: cert-manager
+  namespace: argocd
   finalizers:
   - resources-finalizer.argocd.argoproj.io
 spec:
   project: default
   source:
-    repoURL: https://gitlab.tikalk.dev/tikalk/users/hagzag/just-do-it.git
+    repoURL: 'https://github.com/hagzag/just-do-it.git'
+    path: config/apps/cert-manager
     targetRevision: main
-    path: config/apps/kube-prometheus-stack
   destination:
-    namespace: monitoring
+    namespace: cert-manager
     name: in-cluster
   syncPolicy:
     automated:
@@ -19,7 +20,7 @@ spec:
       selfHeal: true
       allowEmpty: true
     syncOptions:
-    - Validate=false
+    - Validate=true
     - CreateNamespace=true
     - PrunePropagationPolicy=foreground
     - PruneLast=true
@@ -28,6 +29,6 @@ spec:
     retry:
       limit: -1
       backoff:
-        duration: 30s
+        duration: 20s
         factor: 2
-        maxDuration: 30m
+        maxDuration: 15m

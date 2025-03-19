@@ -1,0 +1,12 @@
+n8n:
+  ingress:
+    enabled: true
+    hosts:
+      - host: n8n.k8s.localhost
+        paths:
+          - "/"
+    tls: 
+    - secretName: tls-secret
+      hosts:
+        - n8n.k8s.localhost
+    className: nginx

@@ -1,6 +1,8 @@
 .env
 *.pem
 .config/tls/base/tls-secret.yaml
+tls.crt
+tls.key
 *.tgz
 storage/
 .config/.dockerconfig.json
@@ -42,3 +44,5 @@ venv
 *.log
 
 .idea/*
+*-credentials.ini
+*-credentials.json

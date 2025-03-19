@@ -1,0 +1,142 @@
+---
+version: '3'
+
+silent: true
+
+includes:
+  helm: ../../utils/helm.yaml
+
+vars:
+  arc_controller_name: &arcname actions-runner-controller
+  arc_controller_namespace: actions-runner-controller
+  arc_controller_repo: https://actions-runner-controller.github.io/actions-runner-controller
+  arc_controller_chart_version: 0.23.7
+
+tasks:
+
+  install-dev:
+    cmds:
+      - task: create-github-token-secret
+      - task: create-wrapper-chart
+      - task: create-values
+      - task: dryrun
+      - task: apply
+      - task: create-runner-deployment
+  install:
+    cmds:
+      - task: dryrun
+      - task: apply
+
+  _uninstall:
+    cmds:
+      - task: uninstall
+
+  create-wrapper-chart:
+    dir: '{{.ROOT_DIR}}/config/apps/'
+    cmds:
+      - task: helm:create-wrapper-chart
+        vars:
+          APP_WRAPPER_NAME: '{{.arc_controller_name}}'
+          APP_NAME: '{{.arc_controller_name}}'
+          APP_REPO: '{{.arc_controller_repo}}'
+          APP_VERSION: '{{.arc_controller_chart_version}}'
+
+  create-github-token-secret:
+    requires:
+      vars:
+        - GITHUB_TOKEN
+    dir: '{{.ROOT_DIR}}/config/apps/{{.arc_controller_name}}'
+    cmds:
+      - |
+        kubectl get ns {{.arc_controller_namespace}} &>/dev/null || kubectl create ns {{.arc_controller_namespace}}
+      - |
+        kubectl get secret controller-manager -n {{.arc_controller_namespace}} &>/dev/null || \
+        kubectl create secret generic controller-manager \
+          -n {{.arc_controller_namespace}} \
+          --from-literal=github_token={{.GITHUB_TOKEN}}
+
+  create-values:
+    dir: '{{.ROOT_DIR}}/config/apps/{{.arc_controller_name}}'
+    cmds:
+      - |
+        test -f values.yaml && mv values.yaml values.yaml.bak || true
+        cat<<EOF > values.yaml
+        {{.arc_controller_name}}:
+          authSecret:
+            enabled: true
+            create: false
+            name: "controller-manager"
+        EOF
+  
+  dryrun:
+    vars: &arcvars
+      CHART: '{{.arc_controller_name}}'
+      NAMESPACE: '{{.arc_controller_namespace}}'
+      REPO_URL: '{{.arc_controller_repo}}'
+      VERSION: '{{.arc_controller_chart_version}}'
+      CHART_FOLDER: './config/apps/{{.arc_controller_name}}'
+      VALUES_FILES: './config/apps/{{.arc_controller_name}}/values.yaml'
+    cmds:
+      - task: helm:dependency_build
+        vars: *arcvars
+      - task: helm:template
+        vars: *arcvars
+      - task: helm:template_apply_dry_run
+        vars: *arcvars
+  
+  apply:
+    cmds:
+      - task: helm:dependency_build 
+        vars: *arcvars
+      - task: helm:install
+        vars: *arcvars
+  
+  uninstall:
+    cmds:
+      - task: helm:_uninstall
+        vars: *arcvars
+
+  full-run:
+    cmds:
+      - task: create-wrapper-chart
+      # - task: create-values
+      - task: dryrun
+      - task: apply
+
+  resource-cleanup:
+    cmds:
+      - task: delete-runner-deployment
+      - task: uninstall
+
+  delete-runner-deployment:
+    vars:
+      GIT_REPO:
+        sh: git config --get remote.origin.url | sed 's|https://github.com/||' | sed 's|.git$||' | awk -F'/' '{print $2}'
+    cmds:
+      - |
+        kubectl get runnerdeployment {{.GIT_REPO}}-runner -n {{.arc_controller_namespace}} &>/dev/null && \
+        kubectl delete runnerdeployments {{.GIT_REPO}}-runner -n {{.arc_controller_namespace}}
+
+  create-runner-deployment:
+    vars:
+      GIT_REPO:
+        sh: git config --get remote.origin.url | sed 's|https://github.com/||' | sed 's|.git$||' | awk -F'/' '{print $2}'
+    requires:
+      vars:
+        - GH_USER
+    cmds:
+      - kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=actions-runner-controller -n {{.arc_controller_namespace}} --timeout=300s
+      - | 
+        kubectl get runnerdeployment {{.GIT_REPO}}-runner -n {{.arc_controller_namespace}} &>/dev/null || \
+        kubectl create -f - <<EOF
+        apiVersion: actions.summerwind.dev/v1alpha1
+        kind: RunnerDeployment
+        metadata:
+          name: {{.GIT_REPO}}-runner
+          namespace: {{.arc_controller_namespace}}
+        spec:
+          replicas: 1
+          template:
+            spec:
+              repository: {{.GH_USER}}/{{.GIT_REPO}}
+        EOF

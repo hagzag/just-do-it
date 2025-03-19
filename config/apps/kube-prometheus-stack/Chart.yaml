@@ -1,20 +1,9 @@
 apiVersion: v2
-name: kube-prometheus-stack
-description: A Helm chart for Kube Prometheus Monitoring tack
-
-# Application charts are a collection of templates that can be packaged into versioned archives
-# to be deployed.
-type: application
-
-# The chart version. This version number should be incremented each time you make changes
-# to the chart and its templates, including the app version.
-version: 45.1.1
-
-# Version number of the application being deployed. This version number should be
-# incremented each time you make changes to the application.
-appVersion: "1.0"
-
+name: 'kube-prometheus-stack'
+description: A Helm chart for wrapping kube-prometheus-stack
+version: 0.1.0
+appVersion: 0.1.0
 dependencies:
-- name: kube-prometheus-stack
-  version: 58.3.3
-  repository: https://prometheus-community.github.io/helm-charts
+  - name: 'kube-prometheus-stack'
+    version: '69.2.2'
+    repository: "https://prometheus-community.github.io/helm-charts"
